@@ -1,0 +1,5 @@
+ablation_targets:
+  - quantum_position: [front, middle, tail]
+  - pca_dim: [4, 6, 8]
+  - temperature: [2.0, 4.0]
+  - alpha: [0.3, 0.5, 0.7]

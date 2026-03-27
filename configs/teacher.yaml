@@ -1,0 +1,7 @@
+model_name: teacher_mlp
+hidden_dims: [64, 32]
+dropout: 0.2
+lr: 0.001
+epochs: 80
+batch_size: 32
+early_stopping_patience: 10
