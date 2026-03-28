@@ -18,7 +18,8 @@ def fit_student(
     T=2.0,
     epochs=80,
     lr=1e-3,
-    batch_size=32
+    batch_size=32,
+    verbose_every=5
 ):
     X_train_t = torch.tensor(X_train, dtype=torch.float32)
     y_train_t = torch.tensor(y_train, dtype=torch.float32)
@@ -29,8 +30,10 @@ def fit_student(
         teacher_logits = teacher_logits.detach()
 
     t0 = time.time()
-    for epoch in range(epochs):
+    for epoch in range(1, epochs + 1):
         model.train()
+        epoch_loss = 0.0
+        n_batches = 0
         perm = torch.randperm(len(X_train_t))
         for i in range(0, len(X_train_t), batch_size):
             idx = perm[i:i + batch_size]
@@ -43,6 +46,14 @@ def fit_student(
                 loss = bce(logits.view(-1), y_train_t[idx])
             loss.backward()
             opt.step()
+            epoch_loss += loss.item()
+            n_batches += 1
+
+        if epoch % verbose_every == 0 or epoch == 1 or epoch == epochs:
+            elapsed = time.time() - t0
+            avg_loss = epoch_loss / max(n_batches, 1)
+            print(f"  epoch {epoch:3d}/{epochs}  loss={avg_loss:.4f}  elapsed={elapsed:.1f}s")
+
     train_time = time.time() - t0
     return model, train_time
 
@@ -56,6 +67,7 @@ def run_student_cv(
     T=2.0,
     pca_dim=4,
     n_qubits=4,
+    n_q_layers=1,
     quantum_position="middle",
     n_splits=5,
     seed=42,
@@ -64,10 +76,6 @@ def run_student_cv(
     batch_size=32,
     exp_name="exp"
 ):
-    """
-    Run student model with cross-validation.
-    Reuses fold splits and preprocessors from teacher_fold_outputs if provided.
-    """
     from src.datasets.load_wdbc import load_wdbc
     from src.datasets.preprocess import FoldPreprocessor
     from sklearn.model_selection import StratifiedKFold
@@ -83,13 +91,13 @@ def run_student_cv(
         if teacher_fold_outputs is not None:
             pre = teacher_fold_outputs[fold]["preprocessor"]
             tr_logits = teacher_fold_outputs[fold]["tr_logits"]
+            X_tr = pre.transform(X[tr_idx])
+            y_tr = y[tr_idx]
         else:
             pre = FoldPreprocessor(pca_dim=pca_dim)
+            X_tr, y_tr = pre.fit_transform(X[tr_idx], y[tr_idx])
             tr_logits = None
 
-        X_tr, y_tr = pre.fit_transform(X[tr_idx], y[tr_idx]) \
-            if teacher_fold_outputs is None \
-            else (pre.transform(X[tr_idx]), y[tr_idx])
         X_va = pre.transform(X[va_idx])
         y_va = y[va_idx]
 
@@ -99,6 +107,7 @@ def run_student_cv(
             model = StudentHybrid(
                 input_dim=X_tr.shape[1],
                 n_qubits=n_qubits,
+                n_q_layers=n_q_layers,
                 quantum_position=quantum_position
             )
 
@@ -123,7 +132,7 @@ def run_student_cv(
         metrics["fold"] = fold
         all_metrics.append(metrics)
 
-        print(f"  AUC={metrics['auc']:.4f}  F1={metrics['f1']:.4f}  "
+        print(f"  -> AUC={metrics['auc']:.4f}  F1={metrics['f1']:.4f}  "
               f"MCC={metrics['mcc']:.4f}  Train={train_time:.1f}s")
 
     for k in ["auc", "f1", "acc", "mcc"]:
