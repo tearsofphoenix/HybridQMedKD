@@ -1,0 +1,337 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\title{Lightweight Hybrid Quantum-Classical Networks for Biomedical Tabular Binary Classification:\\
+A Knowledge Distillation and Quantum Layer Placement Study}
+
+\author{Xiaoming Liu\\
+Panda Intelligence Software LTD, United Kingdom\\
+\texttt{i@pandacat.ai}}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+% -------------------------------------------------------
+\begin{abstract}
+Hybrid quantum-classical architectures offer a pragmatic path toward deploying quantum components
+under near-term resource constraints. We propose a lightweight framework that combines a classical
+teacher model, a compact student network, and a small parameterized quantum circuit (PQC) for
+biomedical tabular binary classification under low-resource simulation. To make simulation
+feasible on classical hardware, we apply PCA-based dimensionality reduction before quantum
+encoding, reducing the required qubit count to 4. We train student models using a weighted
+combination of hard-label and soft-target knowledge distillation (KD) loss, and systematically
+compare classical and hybrid students with and without KD. We further ablate the effect of
+quantum layer insertion position (front / middle / tail), input feature dimension, and distillation
+hyperparameters on predictive performance and computational cost. Evaluated on the Breast Cancer
+Wisconsin Diagnostic dataset with 5-fold cross-validation, our results show that [PLACEHOLDER:
+key finding]. We report AUC, F1, MCC, training time, qubit count, and circuit depth to provide
+a complete performance-cost trade-off picture. Our goal is not to claim quantum advantage, but
+to identify practical design guidelines for hybrid quantum-classical learning in realistic
+biomedical settings.
+\end{abstract}
+
+% -------------------------------------------------------
+\section{Introduction}
+\label{sec:intro}
+
+Quantum machine learning (QML) has attracted growing interest as a bridge between near-term
+quantum devices and practical machine learning tasks. However, under current NISQ constraints,
+large quantum circuits remain difficult to train and expensive to simulate~[CITE]. As a result,
+hybrid quantum-classical (HQC) architectures have emerged as a more realistic direction, combining
+classical modules for feature compression with small parameterized quantum circuits for
+learnable transformation~[CITE].
+
+Biomedical tabular classification is a particularly suitable testbed for HQC models. Such tasks
+are often low-dimensional after feature selection, clinically interpretable, and benefit from
+compact models with competitive performance. Recent work has demonstrated the feasibility of
+quantum-enhanced biomarker classification using QSVC and QNN with PCA-reduced inputs~[CITE],
+suggesting that the combination of classical dimensionality reduction and quantum learning
+components is a viable direction.
+
+Meanwhile, knowledge distillation (KD) has proven effective for training compact student models
+by leveraging soft supervisory signals from a larger teacher~[CITE]. Recent work has begun to
+explore KD as a bridge between classical and quantum neural networks~[CITE], showing that
+classical-to-quantum knowledge transfer can improve student training and reduce the effective
+model complexity required.
+
+Despite these advances, two questions remain underexplored:
+\begin{enumerate}
+\item Does KD consistently improve hybrid quantum-classical student models on biomedical tabular tasks?
+\item Where should the quantum layer be placed within the student network for the best
+      performance-to-cost trade-off?
+\end{enumerate}
+
+To address these questions, we make the following contributions:
+\begin{enumerate}
+\item We propose a lightweight HQC student framework with three quantum layer insertion positions
+      (front, middle, tail) and evaluate their effect on AUC, F1, MCC, and training cost.
+\item We introduce classical-to-hybrid KD into this framework and demonstrate its effect on
+      model convergence and predictive performance.
+\item We conduct systematic ablations on PCA dimension, distillation temperature, and
+      insertion position under a consistent 5-fold cross-validation protocol.
+\item We provide complete performance-cost reporting including qubit count, circuit depth,
+      training time, and inference time to support reproducible comparison.
+\end{enumerate}
+
+% -------------------------------------------------------
+\section{Related Work}
+\label{sec:rw}
+
+\subsection{Hybrid Quantum-Classical Classification}
+Hybrid quantum-classical networks combine classical feature extraction with small parameterized
+quantum circuits (PQC) for classification~[CITE]. Several works have studied this architecture
+for image and text data~[CITE], but biomedical tabular data has received comparatively less
+attention. Alvi et al.~[CITE] demonstrated that QSVC and QNN with PCA-reduced inputs can
+achieve competitive performance on biomarker datasets, and that feature map choice and
+class balance significantly affect quantum model outcomes.
+
+\subsection{Knowledge Distillation for Quantum Models}
+Knowledge distillation (KD) was originally proposed to transfer knowledge from a large teacher
+to a compact student using soft logit targets~[CITE]. Recent work has extended this to
+classical-to-quantum settings, showing that quantum students can benefit from classical teacher
+supervision to improve training stability and generalization~[CITE]. QuantumMedKD~[CITE]
+further applied hybrid KD to a medical imaging task, motivating our extension to tabular data.
+
+\subsection{Biomedical Tabular Classification}
+Tabular biomedical data (clinical assays, omics, biomarkers) presents challenges including
+class imbalance, small sample sizes, and high feature dimensionality~[CITE]. PCA-based
+feature compression has been shown effective for reducing dimensionality while preserving
+classification-relevant variance, and is especially suitable for quantum model inputs that
+require bounded feature dimensions~[CITE].
+
+% -------------------------------------------------------
+\section{Method}
+\label{sec:method}
+
+\subsection{Problem Setup}
+Given a biomedical tabular dataset $\mathcal{D} = \{(\mathbf{x}_i, y_i)\}_{i=1}^N$ with binary
+labels $y_i \in \{0, 1\}$ and continuous feature vectors $\mathbf{x}_i \in \mathbb{R}^d$, we
+aim to learn a compact classifier that achieves competitive AUC and F1 while minimizing
+computational cost (training time, qubit count, circuit depth).
+
+\subsection{Preprocessing}
+Within each training fold, we apply:
+\begin{enumerate}
+\item Standard scaling (zero mean, unit variance).
+\item PCA to reduce input dimensionality to $d' \in \{4, 6, 8\}$.
+\item Optional class balancing (class weights or SMOTE).
+\end{enumerate}
+To prevent data leakage, all preprocessing is fit on the training split only and applied
+to the validation split.
+
+\subsection{Teacher Model}
+The teacher is a classical MLP with hidden dimensions $[64, 32]$, dropout 0.2, and sigmoid
+output. It is trained with binary cross-entropy loss and provides soft logits
+$\mathbf{z}^T \in \mathbb{R}^N$ for knowledge distillation.
+
+\subsection{Student Models}
+We consider two student architectures:
+
+\textbf{Classical student (S-C):} A lightweight MLP with hidden dimensions $[16, 8]$.
+
+\textbf{Hybrid quantum-classical student (S-H):} A three-segment architecture:
+\begin{enumerate}
+\item Classical front-end: projects input to a compact representation.
+\item Quantum layer: a PQC with $n_q = 4$ qubits and $L = 2$ variational blocks,
+      using angle encoding (RY) and RY/RZ rotations with CNOT entanglement.
+\item Classical head: maps quantum expectation values to binary logits.
+\end{enumerate}
+We evaluate three insertion positions:
+\begin{itemize}
+\item \textbf{Front}: quantum layer receives PCA-reduced input directly.
+\item \textbf{Middle}: classical projection first, then quantum layer.
+\item \textbf{Tail}: classical projection + nonlinear layer, then quantum layer.
+\end{itemize}
+
+\subsection{Quantum Layer Design}
+The PQC uses angle encoding to map $\mathbf{x} \in \mathbb{R}^{n_q}$ into qubit rotations:
+\begin{equation}
+|\psi_0\rangle = \bigotimes_{i=1}^{n_q} R_Y(x_i)|0\rangle
+\end{equation}
+Followed by $L$ variational blocks:
+\begin{equation}
+U_l(\boldsymbol{\theta}_l) = \left(\prod_{i=1}^{n_q-1} \text{CNOT}_{i,i+1}\right)
+\cdot \left(\bigotimes_{i=1}^{n_q} R_Z(\theta_{l,i,1}) R_Y(\theta_{l,i,0})\right)
+\end{equation}
+Measurements return $n_q$ expectation values $\langle Z_i \rangle$ that are passed to the
+classical head.
+
+\subsection{Knowledge Distillation Loss}
+The student is trained with a combined loss:
+\begin{equation}
+\mathcal{L} = (1-\lambda)\,\mathcal{L}_{\text{hard}} + \lambda T^2\,\mathcal{L}_{\text{KD}}
+\label{eq:kd_loss}
+\end{equation}
+where $\mathcal{L}_{\text{hard}} = \text{BCE}(\hat{y}, y)$ is the hard-label binary
+cross-entropy, $\mathcal{L}_{\text{KD}} = \text{KL}(\sigma(\mathbf{z}^S/T) \| \sigma(\mathbf{z}^T/T))$
+is the soft-target KL divergence at temperature $T$, and $\lambda \in [0,1]$ controls the
+distillation weight. When $\lambda = 0$, the student is trained without distillation.
+
+\subsection{Evaluation Protocol}
+All models are evaluated with stratified 5-fold cross-validation. We report mean $\pm$ std
+over 5 folds for: AUC, F1, Accuracy, MCC, Precision, Recall, training time (s), inference
+time (ms), qubit count, and circuit depth.
+
+% -------------------------------------------------------
+\section{Experiments}
+\label{sec:exp}
+
+\subsection{Dataset}
+The Breast Cancer Wisconsin (Diagnostic) dataset~[CITE] contains 569 samples, 30 continuous
+features, and binary labels (Malignant/Benign, 212/357 split). There are no missing values.
+After PCA with $d' = 4$ components, the explained variance ratio is [PLACEHOLDER]\%.
+
+\begin{table}[t]
+\caption{Dataset statistics.}
+\label{tab:data}
+\centering\small
+\begin{tabular}{lc}
+\toprule
+Property & Value \\
+\midrule
+Samples & 569 \\
+Features (raw) & 30 \\
+Features (after PCA) & 4 / 6 / 8 \\
+Positive class (M) & 212 (37.3\%) \\
+Negative class (B) & 357 (62.7\%) \\
+Missing values & 0 \\
+Task & Binary classification \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Model Configurations}
+
+\begin{table}[t]
+\caption{Experimental groups.}
+\label{tab:groups}
+\centering\small
+\begin{tabular}{llcc}
+\toprule
+ID & Model & KD & Quantum Layer \\
+\midrule
+G1 & Teacher-Classic & -- & No \\
+G2 & Student-Classic & No & No \\
+G3 & Student-Classic-KD & Yes & No \\
+G4 & Student-Hybrid-NoKD & No & Yes \\
+G5 & Student-Hybrid-KD & Yes & Yes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Main Results}
+
+\begin{table}[t]
+\caption{Main results on WDBC (5-fold CV, PCA $d'=4$, $T=2$, $\lambda=0.5$).}
+\label{tab:main}
+\centering\small
+\begin{tabular}{lccccc}
+\toprule
+Model & AUC & F1 & MCC & Train Time (s) & Qubits \\
+\midrule
+Teacher-Classic & -- & -- & -- & -- & 0 \\
+Student-Classic & -- & -- & -- & -- & 0 \\
+Student-Classic-KD & -- & -- & -- & -- & 0 \\
+Student-Hybrid-NoKD & -- & -- & -- & -- & 4 \\
+Student-Hybrid-KD & -- & -- & -- & -- & 4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Ablation: Quantum Layer Position}
+
+\begin{table}[t]
+\caption{Ablation: quantum layer insertion position (Student-Hybrid-KD, PCA $d'=4$).}
+\label{tab:ablation_pos}
+\centering\small
+\begin{tabular}{lccccc}
+\toprule
+Position & AUC & F1 & MCC & Train Time (s) & Circuit Depth \\
+\midrule
+Front  & -- & -- & -- & -- & -- \\
+Middle & -- & -- & -- & -- & -- \\
+Tail   & -- & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Ablation: PCA Dimension and Distillation Hyperparameters}
+
+\begin{table}[t]
+\caption{Ablation: PCA dimension and distillation temperature (Student-Hybrid-KD, middle position).}
+\label{tab:ablation_pca}
+\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Setting & Value & AUC & F1 & Train Time (s) \\
+\midrule
+PCA dim & 4  & -- & -- & -- \\
+PCA dim & 6  & -- & -- & -- \\
+PCA dim & 8  & -- & -- & -- \\
+$T$     & 2  & -- & -- & -- \\
+$T$     & 4  & -- & -- & -- \\
+$\lambda$ & 0.3 & -- & -- & -- \\
+$\lambda$ & 0.5 & -- & -- & -- \\
+$\lambda$ & 0.7 & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% -------------------------------------------------------
+\section{Discussion}
+\label{sec:disc}
+
+\subsection{Does KD help hybrid students?}
+[PLACEHOLDER: Discuss G4 vs G5. Does KD improve AUC / F1 / MCC? Does it speed up convergence?]
+
+\subsection{Which quantum layer position is best?}
+[PLACEHOLDER: Compare front / middle / tail from Table~\ref{tab:ablation_pos}.
+Discuss performance vs circuit depth trade-off.]
+
+\subsection{Is the hybrid student worth the cost?}
+[PLACEHOLDER: Compare G2 vs G4/G5 on performance-cost scatter.
+Under what conditions does the quantum layer add value?]
+
+\subsection{Limitations}
+This study evaluates a single dataset under ideal statevector simulation using PennyLane.
+Results may differ under shot noise, hardware noise, or on datasets with different statistical
+properties. We do not claim quantum advantage; our goal is to identify practical design
+guidelines within a reproducible simulation framework.
+
+% -------------------------------------------------------
+\section{Conclusion}
+\label{sec:conc}
+
+We presented a lightweight hybrid quantum-classical framework for biomedical tabular binary
+classification, combining PCA-based dimensionality reduction, knowledge distillation, and
+small parameterized quantum circuits. Through systematic ablation of quantum layer insertion
+position, input dimension, and distillation hyperparameters, we identified the key factors
+that govern the performance-cost trade-off of hybrid student models in a low-resource
+simulation setting.
+
+Future work includes: (1) evaluation on additional biomedical tabular datasets;
+(2) extension to multi-class classification; (3) noise-aware training under hardware error
+models; and (4) exploration of alternative quantum encodings and ansatz designs.
+
+% -------------------------------------------------------
+\section*{Acknowledgment}
+We thank Panda Intelligence Software LTD for supporting this research.
+
+\begin{thebibliography}{99}
+\bibitem{wdbc} W.~Wolberg, O.~Mangasarian, N.~Street, and W.~Street, ``Breast Cancer Wisconsin (Diagnostic),'' UCI ML Repository, 1995.
+\bibitem{kd} G.~Hinton, O.~Vinyals, and J.~Dean, ``Distilling the Knowledge in a Neural Network,'' arXiv:1503.02531, 2015.
+\bibitem{biomarker_qml} [CITE: biomarker quantum classification paper]
+\bibitem{c2q_kd} [CITE: classical to quantum KD paper]
+\bibitem{quantummedkd} [CITE: QuantumMedKD paper]
+\bibitem{pennylane} V.~Bergholm et al., ``PennyLane: Automatic differentiation of hybrid quantum-classical computations,'' arXiv:1811.04968, 2018.
+\end{thebibliography}
+
+\end{document}
