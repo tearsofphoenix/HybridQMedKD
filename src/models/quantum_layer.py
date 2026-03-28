@@ -1,5 +1,4 @@
 import math
-import numpy as np
 import pennylane as qml
 import torch
 import torch.nn as nn
@@ -7,10 +6,10 @@ import torch.nn as nn
 
 class QuantumLayer(nn.Module):
     """
-    Minimal hybrid quantum layer for Python 3.11 + PennyLane.
-    - Uses interface='torch' with diff_method='parameter-shift'
-    - Single-sample qnode called in a manual batch loop
-    - Weights managed as nn.Parameter for full torch autograd support
+    Hybrid quantum layer for Python 3.11 + PennyLane.
+    - AngleEmbedding + BasicEntanglerLayers
+    - parameter-shift diff_method
+    - Output explicitly cast to float32 to match PyTorch layers
     """
 
     def __init__(self, n_qubits=4, n_q_layers=1):
@@ -22,15 +21,12 @@ class QuantumLayer(nn.Module):
 
         @qml.qnode(dev, interface="torch", diff_method="parameter-shift")
         def _circuit(inputs, weights):
-            # Angle encoding
             qml.AngleEmbedding(inputs, wires=range(n_qubits), rotation="Y")
-            # Variational layers
             qml.BasicEntanglerLayers(weights, wires=range(n_qubits))
             return [qml.expval(qml.PauliZ(i)) for i in range(n_qubits)]
 
         self._circuit = _circuit
 
-        # Weights shape: (n_q_layers, n_qubits)
         bound = 1.0 / math.sqrt(n_qubits)
         self.weights = nn.Parameter(
             torch.empty(n_q_layers, n_qubits).uniform_(-bound, bound)
@@ -38,14 +34,15 @@ class QuantumLayer(nn.Module):
 
     def forward(self, x):
         """
-        x: (batch_size, n_qubits), tanh-bounded values
-        returns: (batch_size, n_qubits)
+        x: (batch_size, n_qubits), float32, tanh-bounded
+        returns: (batch_size, n_qubits), float32
         """
-        out = torch.stack(
-            [torch.stack(self._circuit(x[i], self.weights))
-             for i in range(x.shape[0])]
-        )
-        return out  # (batch, n_qubits)
+        # Run circuit per sample, cast each output to float32
+        outs = [
+            torch.stack(self._circuit(x[i], self.weights)).float()
+            for i in range(x.shape[0])
+        ]
+        return torch.stack(outs)  # (batch, n_qubits), float32
 
     def get_circuit_depth(self):
         return 1 + self.n_q_layers
