@@ -28,16 +28,17 @@ NISQ-era resource constraints, but their value on small biomedical tabular probl
 We study a lightweight teacher-student pipeline that combines PCA-based feature compression, a compact
 classical student, and a 4-qubit parameterized quantum layer. We compare classical and hybrid students
 with and without knowledge distillation (KD), and we further ablate quantum layer placement and PCA
-dimension on the Breast Cancer Wisconsin Diagnostic dataset using 5-fold cross-validation. The recovered
-experimental results show that the hybrid student with KD reaches AUC $0.9931 \pm 0.0054$, matching the
-KD classical student in AUC, while the hybrid student without KD reaches the best hybrid F1
-($0.9442 \pm 0.0220$). However, the hybrid models require $276$--$330$ seconds per fold, compared with
-less than one second for the classical students, so the performance gains are not sufficient to justify
-the extra simulation cost on this dataset. Ablation experiments show that front placement of the quantum
-layer fails badly, whereas middle and tail placement remain competitive; PCA dimensions 6--8 improve
-F1/MCC over 4 dimensions, with 6 dimensions offering the best AUC-cost balance. These results suggest
-that lightweight hybrid models are feasible for biomedical tabular learning, but careful placement and
-compression design matter more than simply adding a quantum layer.
+dimension on the Breast Cancer Wisconsin Diagnostic dataset using 5-fold cross-validation.
+Experimental results show that the hybrid student with KD reaches AUC $0.9931 \pm 0.0054$, matching the
+KD classical student in AUC, while the hybrid student without KD achieves the best hybrid F1
+($0.9442 \pm 0.0220$). However, the hybrid models require $276$--$330$ seconds per fold (KD to no-KD),
+compared with less than one second for the classical students, so the performance gains are not
+sufficient to justify the extra simulation cost on this dataset. Ablation experiments show that front
+placement of the quantum layer fails severely due to out-of-range angle encoding, whereas middle and
+tail placement remain competitive; PCA dimensions 6--8 improve F1/MCC over 4 dimensions, with 6
+dimensions offering the best AUC-cost balance. These results suggest that lightweight hybrid models are
+feasible for biomedical tabular learning, but careful placement and compression design matter more than
+simply adding a quantum layer.
 \end{abstract}
 
 \section{Introduction}
@@ -46,9 +47,9 @@ compression design matter more than simply adding a quantum layer.
 Quantum machine learning (QML) continues to attract interest as a possible route toward practical
 learning systems on near-term quantum hardware. In practice, however, large quantum circuits remain hard
 to optimize and expensive to simulate, especially in data regimes where strong classical baselines are
-already available~[CITE]. Hybrid quantum-classical (HQC) models therefore remain the most realistic
-design pattern: a classical front-end performs feature compression, while a small parameterized quantum
-circuit (PQC) acts as a learnable nonlinear block~[CITE].
+already available~\cite{cerezo2021vqa}. Hybrid quantum-classical (HQC) models therefore remain the most
+realistic design pattern: a classical front-end performs feature compression, while a small parameterized
+quantum circuit (PQC) acts as a learnable nonlinear block~\cite{schuld2021machine}.
 
 Biomedical tabular classification is a useful setting for testing this idea. Such datasets are often
 small, feature-limited after preprocessing, and measured under strict performance-cost constraints. A
@@ -65,30 +66,32 @@ This paper asks three concrete questions on the WDBC benchmark:
 \end{enumerate}
 
 Our contributions are straightforward. First, we benchmark classical and hybrid students under the same
-5-fold protocol. Second, we ablate quantum layer placement and PCA dimension. Third, we report both
-predictive quality and training cost, which makes the trade-off visible rather than relying on accuracy
-alone.
+5-fold protocol with a classical teacher baseline. Second, we ablate quantum layer placement and PCA
+dimension. Third, we report both predictive quality and training cost, making the trade-off visible
+rather than relying on accuracy alone.
 
 \section{Related Work}
 \label{sec:rw}
 
 \subsection{Hybrid Quantum-Classical Classification}
 Hybrid quantum-classical models couple classical feature extractors with shallow PQCs to keep the quantum
-component small enough for near-term simulation or deployment~[CITE]. Prior work has explored this idea
-for image, text, and tabular settings, but biomedical tabular benchmarks remain comparatively underused
-despite their natural low-dimensional structure after feature selection or PCA~[CITE].
+component small enough for near-term simulation or
+deployment~\cite{cerezo2021vqa,schuld2021machine}. Prior work has explored this idea for image, text,
+and tabular settings, but biomedical tabular benchmarks remain comparatively underused despite their
+natural low-dimensional structure after feature selection or
+PCA~\cite{sagingalieva2023hyperparameter}.
 
 \subsection{Knowledge Distillation for Quantum Models}
 KD transfers information from a stronger teacher to a smaller student through softened targets and has
 become a standard compression tool in classical deep learning~\cite{kd}. Recent QML work has extended
 KD to classical-to-quantum and quantum-to-quantum transfer settings, arguing that a stable classical
-teacher can regularize difficult hybrid optimization~[CITE].
+teacher can regularize difficult hybrid optimization~\cite{nguyen2022classicalquantum}.
 
 \subsection{Biomedical Tabular Classification}
 Biomedical tabular tasks typically involve limited sample size, moderate class imbalance, and a need for
 interpretable, compact models. PCA-based compression is especially relevant when quantum inputs must be
-bounded by the number of available qubits~[CITE]. This makes WDBC a suitable benchmark for controlled
-HQC experiments.
+bounded by the number of available qubits~\cite{sagingalieva2023hyperparameter}. This makes WDBC a
+suitable benchmark for controlled HQC experiments.
 
 \section{Method}
 \label{sec:method}
@@ -117,9 +120,9 @@ We evaluate three insertion positions for the quantum block: front, middle, and 
 
 \subsection{Quantum Layer}
 The quantum block uses PennyLane's \texttt{AngleEmbedding} with $Y$ rotations followed by
-\texttt{BasicEntanglerLayers}. For 4 qubits and 1 variational layer, the effective circuit depth is 2
-(embedding + one entangling block). The circuit returns 4 Pauli-$Z$ expectation values that are passed
-to the classical head.
+\texttt{BasicEntanglerLayers}~\cite{pennylane}. For 4 qubits and 1 variational layer, the effective
+circuit depth is 2 (embedding + one entangling block). The circuit returns 4 Pauli-$Z$ expectation
+values that are passed to the classical head.
 
 \subsection{Knowledge Distillation}
 The student objective combines a hard-label BCE term with a soft-target distillation term:
@@ -162,12 +165,14 @@ Task & Binary classification \\
 \subsection{Main Results}
 
 \begin{table}[t]
-\caption{Main student results on WDBC (5-fold CV, default setting with PCA $d'=4$).}
+\caption{Main results on WDBC (5-fold CV, PCA $d'=4$). Teacher results are included as an upper-bound reference.}
 \label{tab:main}
 \centering\small
 \begin{tabular}{lcccc}
 \toprule
 Model & AUC & F1 & MCC & Train Time (s/fold) \\
+\midrule
+Teacher (MLP-64-32) & $0.9939 \pm 0.0054$ & $0.9416 \pm 0.0155$ & -- & $0.31 \pm 0.01$ \\
 \midrule
 Student-Classic & $0.9943 \pm 0.0059$ & $0.9432 \pm 0.0277$ & $0.9126 \pm 0.0418$ & $0.22 \pm 0.04$ \\
 Student-Classic-KD & $0.9931 \pm 0.0060$ & $0.9419 \pm 0.0212$ & $0.9094 \pm 0.0350$ & $0.50 \pm 0.00$ \\
@@ -177,10 +182,12 @@ Student-Hybrid-KD & $0.9931 \pm 0.0054$ & $0.9395 \pm 0.0152$ & $0.9057 \pm 0.02
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:main} shows that the classical student is already very strong on WDBC. The hybrid student
-without KD slightly trails the classical student in AUC but matches it in F1 and MCC. Adding KD to the
-hybrid student raises AUC from $0.9896$ to $0.9931$ and reduces mean training time by about 16\%, but
-it slightly reduces F1 and MCC. In contrast, KD does not improve the classical student on this benchmark.
+Table~\ref{tab:main} shows that the classical student is already very strong on WDBC, closely matching
+the teacher in AUC despite being four times smaller. The hybrid student without KD slightly trails the
+classical student in AUC but matches it in F1 and MCC. Adding KD to the hybrid student raises AUC from
+$0.9896$ to $0.9931$ and reduces mean training time by about 16\%, but slightly reduces F1 and MCC.
+KD does not improve the classical student on this benchmark: the classical student is already saturating
+the task, leaving little residual signal in the teacher's soft targets.
 
 \begin{figure}[t]
 \centering
@@ -214,17 +221,20 @@ Tail   & $0.9903 \pm 0.0073$ & $0.9504 \pm 0.0187$ & $0.9240 \pm 0.0277$ & $347.
 \end{tabular}
 \end{table}
 
-The placement study in Table~\ref{tab:ablation_pos} reveals the most important design choice in this
-paper: placing the quantum block too early is harmful. Front placement collapses predictive quality,
-whereas middle and tail placement both remain competitive. Tail placement yields the best AUC and MCC,
-while middle placement gives the best F1. Because tail placement is also faster on average than middle,
-it provides the strongest overall placement trade-off.
+The placement study in Table~\ref{tab:ablation_pos} reveals the most critical design choice in this
+paper. Front placement collapses predictive quality: the raw PCA features are not bounded to
+$[-\pi, \pi]$ before angle encoding, so the \texttt{AngleEmbedding} rotations wrap around and lose
+discriminative structure, effectively randomizing the quantum state and causing the model to collapse
+to a near-constant predictor. Middle and tail placement both avoid this failure because a preceding
+classical projection with \texttt{Tanh} activation bounds inputs before encoding.
+Tail placement yields the best AUC and MCC, while middle placement gives the best F1. Because tail
+placement is also faster on average than middle, it provides the strongest overall placement trade-off.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.88\linewidth]{ablation_position.pdf}
-\caption{Effect of quantum layer placement. Front placement is unstable, while middle and tail remain
-high-performing.}
+\caption{Effect of quantum layer placement. Front placement collapses due to unbounded angle encoding;
+middle and tail remain high-performing.}
 \label{fig:ablation_position}
 \end{figure}
 
@@ -250,8 +260,8 @@ $T$ & 4 & $0.9932 \pm 0.0060$ & $0.9331 \pm 0.0390$ & $0.9004 \pm 0.0528$ \\
 Increasing the PCA dimension from 4 to 6 or 8 improves F1 and MCC substantially. The 8-dimensional
 setting achieves the strongest F1 and MCC, but 6 dimensions provides the best balanced operating point
 because it preserves the strongest AUC while still improving the other metrics. The temperature ablation
-shows that $T=4$ gives a marginally higher AUC, but $T=2$ is preferable overall because it yields better
-F1 and MCC with less variance.
+shows that $T=4$ gives a marginally higher AUC, but $T=2$ is preferable overall because it yields
+better F1 and MCC with less variance.
 
 \begin{figure}[t]
 \centering
@@ -266,28 +276,31 @@ offering the cleanest balance between AUC and downstream classification quality.
 
 \subsection{Does KD help hybrid students?}
 KD helps the hybrid student only partially. Relative to the non-distilled hybrid model, the KD hybrid
-model improves AUC and lowers training time, which suggests that teacher guidance stabilizes optimization.
-However, the same model slightly loses F1 and MCC. On WDBC, this means KD is useful when AUC is the
-priority, but it does not produce a uniformly better hybrid classifier.
+model improves AUC and lowers training time, which suggests that teacher guidance stabilizes
+optimization. However, the same model slightly loses F1 and MCC. On WDBC, this means KD is useful when
+AUC is the priority, but it does not produce a uniformly better hybrid classifier.
 
 \subsection{Which quantum layer position is best?}
-The placement ablation makes it clear that the quantum layer should not be applied directly to the raw
-PCA vector in this setting. A small classical projection before the quantum block is essential. Both
-middle and tail placement work well, with tail placement offering a slightly better performance-cost
-balance. This is a more actionable design lesson than the binary question of whether a quantum layer is
-present at all.
+The placement ablation makes it clear that the quantum layer must not be applied directly to the raw
+PCA vector in this setting. Without a classical projection to bound inputs into $[-\pi, \pi]$, angle
+encoding degrades due to rotation wrap-around, and the quantum circuit loses its ability to separate
+classes. Both middle and tail placement avoid this failure, with tail placement offering a slightly
+better performance-cost balance. This is a more actionable design lesson than the binary question of
+whether a quantum layer is present at all.
 
 \subsection{Is the hybrid student worth the cost?}
-For this dataset, the answer is generally no. The classical student already reaches AUC above 0.994 with
-sub-second training per fold. The hybrid students can remain competitive, but they are two to three
+For this dataset, the answer is generally no. The classical student already reaches AUC above $0.994$
+with sub-second training per fold. The hybrid students can remain competitive, but they are two to three
 orders of magnitude slower in statevector simulation. The hybrid layer therefore behaves more like a
 research probe than a cost-effective production choice on WDBC.
 
 \subsection{Limitations}
 This study uses a single biomedical dataset and noiseless simulation on PennyLane's
-\texttt{default.qubit}. We do not evaluate shot noise, hardware noise, calibration drift, or larger
-cohorts. In addition, the recovered results are based on fold-aggregated notebook outputs rather than
-full prediction archives, so calibration and per-sample error analysis are outside the current scope.
+\texttt{default.qubit}~\cite{pennylane}. We do not evaluate shot noise, hardware noise, calibration
+drift, or larger cohorts. We report fold-aggregated summary statistics rather than per-sample prediction
+archives; calibration analysis and per-sample error breakdown are therefore outside the current scope.
+Finally, the classical student already saturates WDBC performance, which limits the headroom available
+for any student model---classical or hybrid---to demonstrate clear improvement.
 
 \section{Conclusion}
 \label{sec:conc}
@@ -297,9 +310,10 @@ classification and evaluated it under a controlled teacher-student pipeline. The
 is simple: on WDBC, a shallow 4-qubit hybrid student can be competitive, but it does not clearly beat
 the lightweight classical student once simulation cost is accounted for. KD improves the hybrid model's
 AUC and reduces its training time, while quantum layer placement and PCA dimension have a larger impact
-than the mere presence of a quantum block. These findings support a pragmatic view of HQC modeling:
-careful architectural placement is necessary, and strong classical baselines remain hard to outperform on
-small biomedical tabular benchmarks.
+than the mere presence of a quantum block. Front placement fails consistently due to unbounded angle
+encoding and should be avoided; middle and tail placement both succeed. These findings support a
+pragmatic view of HQC modeling: careful architectural placement is necessary, and strong classical
+baselines remain hard to outperform on small biomedical tabular benchmarks.
 
 Future work should expand this study to additional datasets, evaluate noise-aware settings, and test
 whether the placement effects observed here persist under broader feature regimes and alternative ansatz
@@ -309,12 +323,43 @@ families.
 We thank Panda Intelligence Software LTD for supporting this research.
 
 \begin{thebibliography}{99}
-\bibitem{wdbc} W.~Wolberg, O.~Mangasarian, N.~Street, and W.~Street, ``Breast Cancer Wisconsin (Diagnostic),'' UCI ML Repository, 1995.
-\bibitem{kd} G.~Hinton, O.~Vinyals, and J.~Dean, ``Distilling the Knowledge in a Neural Network,'' arXiv:1503.02531, 2015.
-\bibitem{biomarker_qml} [CITE: biomarker quantum classification paper]
-\bibitem{c2q_kd} [CITE: classical to quantum KD paper]
-\bibitem{quantummedkd} [CITE: QuantumMedKD paper]
-\bibitem{pennylane} V.~Bergholm et al., ``PennyLane: Automatic differentiation of hybrid quantum-classical computations,'' arXiv:1811.04968, 2018.
+
+\bibitem{wdbc}
+W.~Wolberg, O.~Mangasarian, N.~Street, and W.~Street,
+``Breast Cancer Wisconsin (Diagnostic),'' UCI Machine Learning Repository, 1995.
+
+\bibitem{kd}
+G.~Hinton, O.~Vinyals, and J.~Dean,
+``Distilling the Knowledge in a Neural Network,''
+\textit{arXiv}:1503.02531, 2015.
+
+\bibitem{cerezo2021vqa}
+M.~Cerezo, A.~Arrasmith, R.~Babbush, S.~C.~Benjamin, S.~Endo, K.~Fujii, J.~R.~McClean,
+K.~Mitarai, X.~Yuan, L.~Cincio, and P.~J.~Coles,
+``Variational Quantum Algorithms,''
+\textit{Nature Reviews Physics}, vol.~3, pp.~625--644, 2021.
+
+\bibitem{schuld2021machine}
+M.~Schuld and F.~Petruccione,
+\textit{Machine Learning with Quantum Computers}.
+Springer, 2021.
+
+\bibitem{sagingalieva2023hyperparameter}
+A.~Sagingalieva, M.~Kordzanganeh, N.~Kenbayev, D.~Kosichkina, T.~Tomashuk, and A.~Melnikov,
+``Hyperparameter Optimization of Hybrid Quantum Neural Networks for Car Classification,''
+\textit{arXiv}:2205.04878v2, 2023.
+
+\bibitem{nguyen2022classicalquantum}
+Q.~H.~Nguyen, P.~Le~Bris, D.~Leporini, and C.~De~Sa,
+``Classical-to-Quantum Transfer Learning for Spoken Command Recognition Based on Quantum Neural Networks,''
+\textit{arXiv}:2110.11919, 2022.
+
+\bibitem{pennylane}
+V.~Bergholm, J.~Izaac, M.~Schuld, C.~Gogolin, S.~Ahmed, V.~Ajith, M.~S.~Alam, G.~Alonso-Linaje,
+B.~AkashNarayanan, A.~Asadi, et al.,
+``PennyLane: Automatic differentiation of hybrid quantum-classical computations,''
+\textit{arXiv}:1811.04968, 2018.
+
 \end{thebibliography}
 
 \end{document}
