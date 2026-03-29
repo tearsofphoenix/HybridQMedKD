@@ -281,12 +281,12 @@ encoding; middle and tail remain high-performing.}
 \label{fig:ablation_position}
 \end{figure}
 
-\subsection{Ablation: PCA Dimension and Temperature}
+\subsection{Ablation: PCA Dimension, KD Weight, and Temperature}
 
 \begin{table}[t]
-\caption{Ablation of PCA dimension and temperature $T$ for the KD hybrid student.
-These runs follow the notebook-04 default middle placement. A dedicated tail-placement
-$\alpha$ sweep is being rerun and is therefore excluded from this table.}
+\caption{Ablation of PCA dimension, KD weight $\alpha$, and temperature $T$ for the KD hybrid student.
+PCA and temperature runs follow the notebook-04 default middle placement; the $\alpha$ sweep is
+reported separately under the tail placement selected by Table~\ref{tab:ablation_pos}.}
 \label{tab:ablation_pca}
 \centering\small
 \begin{tabular}{llccc}
@@ -297,6 +297,10 @@ PCA dim & 4 & $0.9924 \pm 0.0088$ & $0.9423 \pm 0.0191$ & $0.9103 \pm 0.0300$ \\
 PCA dim & 6 & $0.9926 \pm 0.0072$ & $0.9538 \pm 0.0175$ & $0.9283 \pm 0.0274$ \\
 PCA dim & 8 & $0.9888 \pm 0.0108$ & $0.9668 \pm 0.0119$ & $0.9488 \pm 0.0178$ \\
 \midrule
+$\alpha$ (tail) & 0.3 & $0.9920 \pm 0.0082$ & $0.9358 \pm 0.0303$ & $0.9013 \pm 0.0440$ \\
+$\alpha$ (tail) & 0.5 & $0.9918 \pm 0.0067$ & $0.9510 \pm 0.0186$ & $0.9231 \pm 0.0302$ \\
+$\alpha$ (tail) & 0.7 & $0.9903 \pm 0.0071$ & $0.9504 \pm 0.0187$ & $0.9240 \pm 0.0277$ \\
+\midrule
 $T$ & 2 & $0.9929 \pm 0.0073$ & $0.9442 \pm 0.0228$ & $0.9127 \pm 0.0367$ \\
 $T$ & 4 & $0.9932 \pm 0.0060$ & $0.9331 \pm 0.0390$ & $0.9004 \pm 0.0528$ \\
 \bottomrule
@@ -305,9 +309,9 @@ $T$ & 4 & $0.9932 \pm 0.0060$ & $0.9331 \pm 0.0390$ & $0.9004 \pm 0.0528$ \\
 
 Increasing the PCA dimension from 4 to 6 or 8 improves F1 and MCC substantially; 6 dimensions
 provides the best balanced operating point, while 8 dimensions maximizes F1/MCC at a small AUC
-cost. Temperature $T=2$ is preferable overall. A dedicated tail-placement $\alpha$ sweep is
-currently being recomputed to replace earlier placeholder values, so we defer a final claim about
-the optimal KD weight until those runs complete.
+cost. The tail-placement $\alpha$ sweep does not show a monotone trend: $\alpha=0.3$ gives the
+best AUC, whereas $\alpha=0.5$ and $\alpha=0.7$ produce clearly better F1/MCC and are nearly tied
+on threshold-based metrics. Temperature $T=2$ remains preferable overall.
 
 \begin{figure}[t]
 \centering
@@ -317,17 +321,25 @@ F1/MCC, with 6 dimensions offering the cleanest balance.}
 \label{fig:ablation_pca}
 \end{figure}
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.82\linewidth]{ablation_alpha.pdf}
+\caption{Effect of KD weight $\alpha$ under tail placement. Lower $\alpha$ slightly improves
+AUC, while $\alpha=0.5$--$0.7$ yields better F1/MCC.}
+\label{fig:ablation_alpha}
+\end{figure}
+
 \section{Discussion}
 \label{sec:disc}
 
 \subsection{Does KD help hybrid students?}
 KD helps the hybrid student only partially. Relative to the non-distilled hybrid model, the KD
 hybrid improves AUC and lowers training time, suggesting that teacher guidance stabilizes
-optimization. However, the same model slightly loses F1 and MCC. The $\alpha$ ablation reveals
-that teacher entropy is low enough to make aggressive soft-target weighting unlikely to help much:
-the teacher's soft predictions are highly peaked, so the KD signal is largely redundant with the
-binary cross-entropy term. The dedicated tail-placement $\alpha$ sweep is currently being rerun, so
-we do not make a stronger quantitative claim here.
+optimization. However, the same model slightly loses F1 and MCC. The tail-placement $\alpha$ sweep
+shows a metric-dependent trade-off rather than a monotone pattern: $\alpha=0.3$ gives the best AUC,
+but $\alpha=0.5$ and $\alpha=0.7$ achieve higher F1/MCC. This is still consistent with the low but
+non-zero entropy reported in Appendix~\ref{app:entropy}: the teacher's soft predictions are highly
+confident, yet they retain enough structure to affect thresholded metrics when given moderate weight.
 
 \subsection{Which quantum layer position is best?}
 The placement ablation makes it clear that the quantum layer must not be applied directly to the
@@ -350,8 +362,8 @@ This study uses a single biomedical dataset and noiseless simulation on PennyLan
 \texttt{default.qubit}~\cite{pennylane}. The single-dataset design is a primary limitation:
 results on WDBC---which is near-saturated by all models---may not generalize to more challenging
 or higher-dimensional biomedical tabular settings. We do not evaluate shot noise, hardware noise,
-or calibration drift. A dedicated $\alpha$ sweep under tail placement is still running and is not
-yet included in the current draft.
+or calibration drift. The $\alpha$ sweep is reported only for tail placement on WDBC, so the
+interaction between KD weight, placement, and dataset difficulty remains underexplored.
 Future work should include at least one additional benchmark (e.g., Pima Indians Diabetes or
 Heart Disease UCI) to test whether the placement and KD findings observed here generalize.
 

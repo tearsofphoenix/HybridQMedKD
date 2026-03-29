@@ -193,10 +193,11 @@ def plot_ablation_pca(results_dict):
 
 def plot_ablation_alpha(results_dict):
     """Line chart: AUC/F1 vs KD alpha."""
-    alphas = sorted(float(a) for a in results_dict.keys())
-    auc_vals = [results_dict[a].get("auc", {}).get("mean", 0) for a in alphas]
-    f1_vals = [results_dict[a].get("f1", {}).get("mean", 0) for a in alphas]
-    mcc_vals = [results_dict[a].get("mcc", {}).get("mean", 0) for a in alphas]
+    normalized = {float(a): stats for a, stats in results_dict.items()}
+    alphas = sorted(normalized.keys())
+    auc_vals = [normalized[a].get("auc", {}).get("mean", 0) for a in alphas]
+    f1_vals = [normalized[a].get("f1", {}).get("mean", 0) for a in alphas]
+    mcc_vals = [normalized[a].get("mcc", {}).get("mean", 0) for a in alphas]
 
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.plot(alphas, auc_vals, marker="o", label="AUC", color=COLORS[0])

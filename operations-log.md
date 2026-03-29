@@ -1,0 +1,12 @@
+# Operations Log
+- 2026-03-29 Codex: sequential-thinking + shrimp-task-manager used to plan continuation of alpha ablation, paper corrections, figure regeneration, and PDF rebuild.
+- 2026-03-29 Codex: inspected git status, outputs/tables, outputs/figures, and paper/main.tex; confirmed ablation_alpha outputs were missing and entropy text in paper was stale.
+- 2026-03-29 Codex: launched `python scripts/run_ablation_alpha.py` in PTY session 99582 to generate real WDBC alpha ablation CSV/JSON outputs.
+- 2026-03-29 Codex: patched paper/main.tex to use verified teacher MCC and updated teacher entropy values from outputs/tables/teacher_summary.json and teacher_entropy.json.
+- 2026-03-29 Codex: confirmed from `notebooks/03_run_hybrid.ipynb` and `notebooks/04_ablation.ipynb` that the main hybrid baseline uses middle placement, while the dedicated alpha ablation is defined at tail placement.
+- 2026-03-29 Codex: restarted the full alpha run in PTY session 58898 with local cache directories to avoid matplotlib cache warnings.
+- 2026-03-29 Codex: removed unverified alpha claims from `paper/main.tex`, clarified current Pima status, and kept only verified entropy-related updates in the compiled draft.
+- 2026-03-29 Codex: installed local TeX packages (`xargs`, `environ`, `xstring`, `trimspaces`, `tikz-cd`) into `.texmf` and successfully rebuilt `paper/main.pdf` with `TEXMFHOME="$PWD/../.texmf"`.
+- 2026-03-29 Codex: completed the real alpha sweep in session 58898 and produced `outputs/tables/ablation_alpha_0.3_folds.csv`, `ablation_alpha_0.5_folds.csv`, `ablation_alpha_0.7_folds.csv`, and `ablation_alpha.json`.
+- 2026-03-29 Codex: fixed `plot_ablation_alpha` to normalize JSON string keys and generated `outputs/figures/ablation_alpha.pdf` and `ablation_alpha.png`.
+- 2026-03-29 Codex: updated `paper/main.tex` with real alpha values and regenerated `paper/main.pdf`.
