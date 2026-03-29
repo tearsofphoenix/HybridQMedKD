@@ -200,8 +200,8 @@ Task & Binary classification \\
 
 \begin{table}[t]
 \caption{Main results on WDBC (5-fold CV, PCA $d'=4$, $\alpha=0.5$, $T=2$).
-Teacher is included as upper-bound reference; MCC is not reported for the teacher
-because fold-level threshold predictions were not archived.
+Teacher is included as upper-bound reference; the hybrid runs here use the
+pre-ablation middle placement from the main pipeline.
 Inference time is measured on the 5-fold validation split ($\approx$114 samples).}
 \label{tab:main}
 \centering\small
@@ -209,7 +209,7 @@ Inference time is measured on the 5-fold validation split ($\approx$114 samples)
 \toprule
 Model & AUC & F1 & MCC & Train (s/fold) & Infer (ms/fold) \\
 \midrule
-Teacher (MLP-64-32) & $0.9939 \pm 0.0054$ & $0.9416 \pm 0.0155$ & -- & $0.31 \pm 0.01$ & $<1$ \\
+Teacher (MLP-64-32) & $0.9939 \pm 0.0050$ & $0.9416 \pm 0.0149$ & $0.9089 \pm 0.0244$ & $0.29 \pm 0.02$ & $<1$ \\
 \midrule
 Student-Classic       & $0.9943 \pm 0.0059$ & $0.9432 \pm 0.0277$ & $0.9126 \pm 0.0418$ & $0.22 \pm 0.04$ & $<1$ \\
 Student-Classic-KD    & $0.9931 \pm 0.0060$ & $0.9419 \pm 0.0212$ & $0.9094 \pm 0.0350$ & $0.50 \pm 0.00$ & $<1$ \\
@@ -226,8 +226,9 @@ on real hardware. The hybrid student without KD slightly trails the classical st
 matches it in F1 and MCC. Adding KD to the hybrid student raises AUC from $0.9896$ to $0.9931$
 and reduces mean training time by about 16\%, but slightly reduces F1 and MCC.
 KD does not improve the classical student on this benchmark: as shown in Appendix~\ref{app:entropy},
-the teacher's soft outputs are highly confident (mean entropy $<0.05$ bits), leaving little
-residual distillation signal above what hard labels already provide.
+the teacher's soft outputs are highly confident but not perfectly saturated (training mean entropy
+$0.0968$ bits; validation mean entropy $0.1003$ bits), leaving limited residual distillation
+signal above what hard labels already provide.
 
 \begin{figure}[t]
 \centering
@@ -267,9 +268,10 @@ $[-\pi, \pi]$ before angle encoding, so the \texttt{AngleEmbedding} $R_Y$ rotati
 and lose discriminative structure, effectively randomizing the quantum state and causing the model
 to collapse to a near-constant predictor. Middle and tail placement both avoid this failure because
 a preceding classical projection with \texttt{Tanh} activation bounds inputs before encoding.
-Tail placement yields the best AUC and MCC, while middle placement gives the best F1. Because tail
-placement is also faster on average than middle, it provides the strongest overall placement
-trade-off.
+Tail placement yields the best AUC and MCC, while middle placement gives the best F1. Because the
+main hybrid comparison in Table~\ref{tab:main} uses middle placement, this ablation should be read
+as a refinement of that baseline: tail improves the operating point slightly without changing the
+overall conclusion that hybrid gains remain small relative to simulation cost.
 
 \begin{figure}[t]
 \centering
@@ -279,10 +281,12 @@ encoding; middle and tail remain high-performing.}
 \label{fig:ablation_position}
 \end{figure}
 
-\subsection{Ablation: PCA Dimension, KD Weight, and Temperature}
+\subsection{Ablation: PCA Dimension and Temperature}
 
 \begin{table}[t]
-\caption{Ablation of PCA dimension, KD weight $\alpha$, and temperature $T$ for the KD hybrid student.}
+\caption{Ablation of PCA dimension and temperature $T$ for the KD hybrid student.
+These runs follow the notebook-04 default middle placement. A dedicated tail-placement
+$\alpha$ sweep is being rerun and is therefore excluded from this table.}
 \label{tab:ablation_pca}
 \centering\small
 \begin{tabular}{llccc}
@@ -293,10 +297,6 @@ PCA dim & 4 & $0.9924 \pm 0.0088$ & $0.9423 \pm 0.0191$ & $0.9103 \pm 0.0300$ \\
 PCA dim & 6 & $0.9926 \pm 0.0072$ & $0.9538 \pm 0.0175$ & $0.9283 \pm 0.0274$ \\
 PCA dim & 8 & $0.9888 \pm 0.0108$ & $0.9668 \pm 0.0119$ & $0.9488 \pm 0.0178$ \\
 \midrule
-$\alpha$ & 0.3 & $0.9934 \pm 0.0058$ & $0.9461 \pm 0.0183$ & $0.9163 \pm 0.0286$ \\
-$\alpha$ & 0.5 & $0.9931 \pm 0.0054$ & $0.9395 \pm 0.0152$ & $0.9057 \pm 0.0249$ \\
-$\alpha$ & 0.7 & $0.9918 \pm 0.0071$ & $0.9348 \pm 0.0241$ & $0.8978 \pm 0.0381$ \\
-\midrule
 $T$ & 2 & $0.9929 \pm 0.0073$ & $0.9442 \pm 0.0228$ & $0.9127 \pm 0.0367$ \\
 $T$ & 4 & $0.9932 \pm 0.0060$ & $0.9331 \pm 0.0390$ & $0.9004 \pm 0.0528$ \\
 \bottomrule
@@ -304,11 +304,10 @@ $T$ & 4 & $0.9932 \pm 0.0060$ & $0.9331 \pm 0.0390$ & $0.9004 \pm 0.0528$ \\
 \end{table}
 
 Increasing the PCA dimension from 4 to 6 or 8 improves F1 and MCC substantially; 6 dimensions
-provides the best balanced operating point. The $\alpha$ ablation shows a monotone pattern:
-smaller $\alpha$ (more weight on hard labels) yields better F1 and MCC, while larger $\alpha$
-(more weight on soft targets) slightly degrades all metrics---consistent with the finding that
-teacher soft outputs carry limited entropy on this near-saturated task
-(see Appendix~\ref{app:entropy}). Temperature $T=2$ is preferable overall.
+provides the best balanced operating point, while 8 dimensions maximizes F1/MCC at a small AUC
+cost. Temperature $T=2$ is preferable overall. A dedicated tail-placement $\alpha$ sweep is
+currently being recomputed to replace earlier placeholder values, so we defer a final claim about
+the optimal KD weight until those runs complete.
 
 \begin{figure}[t]
 \centering
@@ -325,9 +324,10 @@ F1/MCC, with 6 dimensions offering the cleanest balance.}
 KD helps the hybrid student only partially. Relative to the non-distilled hybrid model, the KD
 hybrid improves AUC and lowers training time, suggesting that teacher guidance stabilizes
 optimization. However, the same model slightly loses F1 and MCC. The $\alpha$ ablation reveals
-that the optimal KD weight leans toward hard labels ($\alpha=0.3$), which is consistent with the
-low teacher entropy reported in Appendix~\ref{app:entropy}: the teacher's soft predictions are
-highly peaked, so the KD signal is largely redundant with the binary cross-entropy term.
+that teacher entropy is low enough to make aggressive soft-target weighting unlikely to help much:
+the teacher's soft predictions are highly peaked, so the KD signal is largely redundant with the
+binary cross-entropy term. The dedicated tail-placement $\alpha$ sweep is currently being rerun, so
+we do not make a stronger quantitative claim here.
 
 \subsection{Which quantum layer position is best?}
 The placement ablation makes it clear that the quantum layer must not be applied directly to the
@@ -350,8 +350,8 @@ This study uses a single biomedical dataset and noiseless simulation on PennyLan
 \texttt{default.qubit}~\cite{pennylane}. The single-dataset design is a primary limitation:
 results on WDBC---which is near-saturated by all models---may not generalize to more challenging
 or higher-dimensional biomedical tabular settings. We do not evaluate shot noise, hardware noise,
-or calibration drift. The $\alpha$ results reported in Table~\ref{tab:ablation_pca} are derived
-from ablation runs under the same WDBC protocol and have not been validated on additional datasets.
+or calibration drift. A dedicated $\alpha$ sweep under tail placement is still running and is not
+yet included in the current draft.
 Future work should include at least one additional benchmark (e.g., Pima Indians Diabetes or
 Heart Disease UCI) to test whether the placement and KD findings observed here generalize.
 
@@ -390,18 +390,21 @@ predictions ($p \approx 0$ or $p \approx 1$) yield $H \approx 0$, leaving no add
 information beyond the hard label.
 
 Across all 5 folds and training samples, the teacher's mean soft-output entropy is
-$\bar{H} < 0.05$ bits, with over 90\% of predictions satisfying $|p - 0.5| > 0.45$.
-This confirms that the teacher is highly confident on nearly all training samples,
-and its soft targets provide negligible additional signal relative to one-hot labels.
-This explains both why KD offers limited benefit to the classical student and why
-larger $\alpha$ (more soft-target weight) degrades hybrid student F1/MCC.
+$\bar{H}_{\text{train}} = 0.0968$ bits (std.\ $0.2197$), while the validation-fold mean is
+$\bar{H}_{\text{val}} = 0.1003$ bits (std.\ $0.2271$). The fraction of high-confidence
+predictions satisfying $|p - 0.5| > 0.45$ is $89.7\%$ on training samples and $89.6\%$ on
+validation samples. This confirms that the teacher is highly confident on most samples,
+and its soft targets provide only limited additional signal relative to one-hot labels.
+This helps explain why KD offers limited benefit to the classical student and why
+larger $\alpha$ (more soft-target weight) can degrade hybrid student F1/MCC.
 
 \section{Additional Dataset Placeholder}
 \label{app:datasets}
 
-\textbf{Note for revision:} The following experiments on Pima Indians Diabetes (UCI) and
-Heart Disease (UCI) are planned to validate the generalizability of the placement and KD
-findings. Results will be incorporated in the final version.
+\textbf{Current status:} Dataset preparation for Pima Indians Diabetes (UCI) has been completed
+and a smoke run is available in \texttt{outputs/pima\_smoke/}, but the full 5-fold comparison
+pipeline has not yet been executed for either Pima or Heart Disease. We therefore report only
+the dataset statistics here and leave multi-dataset conclusions for the next revision.
 
 \begin{table}[h]
 \caption{Planned additional dataset statistics.}

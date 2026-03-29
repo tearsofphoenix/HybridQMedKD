@@ -61,6 +61,12 @@ def fit_student(
 
 def run_student_cv(
     csv_path,
+    dataset_name="wdbc",
+    target_col=None,
+    id_col=None,
+    positive_label=None,
+    negative_label=None,
+    drop_cols=None,
     teacher_fold_outputs=None,
     model_type="classic",
     use_kd=False,
@@ -77,11 +83,19 @@ def run_student_cv(
     batch_size=32,
     exp_name="exp"
 ):
-    from src.datasets.load_wdbc import load_wdbc
+    from src.datasets.load_tabular import load_dataset
     from src.datasets.preprocess import FoldPreprocessor
     from sklearn.model_selection import StratifiedKFold
 
-    X, y, _ = load_wdbc(csv_path)
+    X, y, _ = load_dataset(
+        csv_path,
+        dataset_name=dataset_name,
+        target_col=target_col,
+        id_col=id_col,
+        positive_label=positive_label,
+        negative_label=negative_label,
+        drop_cols=drop_cols,
+    )
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
     fold_splits = list(skf.split(X, y))
     all_metrics = []

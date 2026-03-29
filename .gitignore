@@ -6,6 +6,8 @@ build/
 .env
 .venv
 venv/
+.cache/
+.texmf/
 *.ipynb_checkpoints
 .DS_Store
 outputs/checkpoints/
@@ -29,3 +31,9 @@ paper/*.bbl
 paper/*.blg
 paper/*.lof
 paper/*.lot
+paper/*.nav
+paper/*.snm
+paper/*.vrb
+paper/*.bcf
+paper/*.run.xml
+paper/*.xdv

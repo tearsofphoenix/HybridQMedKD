@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
 
-from src.datasets.load_wdbc import load_wdbc
+from src.datasets.load_tabular import load_dataset
 from src.datasets.preprocess import FoldPreprocessor
 from src.models.teacher_mlp import TeacherMLP
 from src.trainers.evaluate import evaluate_binary
@@ -11,7 +11,14 @@ from src.trainers.evaluate import evaluate_binary
 
 def train_teacher_cv(
     csv_path,
+    dataset_name="wdbc",
+    target_col=None,
+    id_col=None,
+    positive_label=None,
+    negative_label=None,
+    drop_cols=None,
     pca_dim=4,
+    balance_method="none",
     n_splits=5,
     seed=42,
     epochs=80,
@@ -22,14 +29,22 @@ def train_teacher_cv(
     Train teacher MLP with cross-validation.
     Returns fold outputs including logits for distillation.
     """
-    X, y, _ = load_wdbc(csv_path)
+    X, y, _ = load_dataset(
+        csv_path,
+        dataset_name=dataset_name,
+        target_col=target_col,
+        id_col=id_col,
+        positive_label=positive_label,
+        negative_label=negative_label,
+        drop_cols=drop_cols,
+    )
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
     fold_outputs = []
 
     for fold, (tr_idx, va_idx) in enumerate(skf.split(X, y)):
         print(f"[Teacher] Fold {fold + 1}/{n_splits}")
 
-        pre = FoldPreprocessor(pca_dim=pca_dim)
+        pre = FoldPreprocessor(pca_dim=pca_dim, balance_method=balance_method)
         X_tr, y_tr = pre.fit_transform(X[tr_idx], y[tr_idx])
         X_va = pre.transform(X[va_idx])
         y_va = y[va_idx]
@@ -58,7 +73,9 @@ def train_teacher_cv(
         model.eval()
         with torch.no_grad():
             tr_logits = model(X_tr_t)
+            t_inf = time.time()
             va_logits = model(X_va_t)
+            infer_time = time.time() - t_inf
             va_probs = torch.sigmoid(va_logits).view(-1).cpu().numpy()
 
         metrics = evaluate_binary(y_va, va_probs)
@@ -74,7 +91,8 @@ def train_teacher_cv(
             "tr_idx": tr_idx,
             "va_idx": va_idx,
             "metrics": metrics,
-            "train_time": train_time
+            "train_time": train_time,
+            "infer_time": infer_time,
         })
 
     avg_auc = np.mean([o["metrics"]["auc"] for o in fold_outputs])

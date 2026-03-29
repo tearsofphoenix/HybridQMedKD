@@ -55,6 +55,17 @@ def build_ablation_pca_summary(output_dir=None):
     )
 
 
+def build_ablation_alpha_summary(output_dir=None):
+    return build_named_summary_map(
+        {
+            0.3: "ablation_alpha_0.3",
+            0.5: "ablation_alpha_0.5",
+            0.7: "ablation_alpha_0.7",
+        },
+        output_dir=output_dir,
+    )
+
+
 def save_json(data, filename, output_dir=None):
     output_dir = output_dir or get_tables_dir()
     os.makedirs(output_dir, exist_ok=True)
@@ -69,11 +80,14 @@ def save_available_ablation_summaries(output_dir=None):
     output_dir = output_dir or get_tables_dir()
     pos_summary = build_ablation_position_summary(output_dir)
     pca_summary = build_ablation_pca_summary(output_dir)
+    alpha_summary = build_ablation_alpha_summary(output_dir)
 
     if pos_summary:
         save_json(pos_summary, "ablation_position.json", output_dir)
     if pca_summary:
         save_json(pca_summary, "ablation_pca.json", output_dir)
+    if alpha_summary:
+        save_json(alpha_summary, "ablation_alpha.json", output_dir)
 
 
 def save_summary(summary, output_dir=None):

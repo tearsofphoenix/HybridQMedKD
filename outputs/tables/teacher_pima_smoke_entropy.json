@@ -1,0 +1,18 @@
+{
+  "train": {
+    "split": "train",
+    "num_samples": 768,
+    "mean_entropy_bits": 0.8819570541381836,
+    "std_entropy_bits": 0.13450488448143005,
+    "median_entropy_bits": 0.9282091856002808,
+    "frac_abs_p_minus_0_5_gt_0_45": 0.0026041666666666665
+  },
+  "val": {
+    "split": "val",
+    "num_samples": 768,
+    "mean_entropy_bits": 0.8831562399864197,
+    "std_entropy_bits": 0.1348530352115631,
+    "median_entropy_bits": 0.9384976625442505,
+    "frac_abs_p_minus_0_5_gt_0_45": 0.0026041666666666665
+  }
+}

@@ -191,6 +191,29 @@ def plot_ablation_pca(results_dict):
     plt.close(fig)
 
 
+def plot_ablation_alpha(results_dict):
+    """Line chart: AUC/F1 vs KD alpha."""
+    alphas = sorted(float(a) for a in results_dict.keys())
+    auc_vals = [results_dict[a].get("auc", {}).get("mean", 0) for a in alphas]
+    f1_vals = [results_dict[a].get("f1", {}).get("mean", 0) for a in alphas]
+    mcc_vals = [results_dict[a].get("mcc", {}).get("mean", 0) for a in alphas]
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(alphas, auc_vals, marker="o", label="AUC", color=COLORS[0])
+    ax.plot(alphas, f1_vals, marker="s", label="F1", color=COLORS[1])
+    ax.plot(alphas, mcc_vals, marker="^", label="MCC", color=COLORS[2])
+    ax.set_xlabel("KD Weight α", fontsize=11)
+    ax.set_ylabel("Score", fontsize=11)
+    ax.set_title("Ablation: KD Weight α", fontsize=11)
+    ax.set_xticks(alphas)
+    ax.legend(fontsize=10)
+    fig.tight_layout()
+    for ext in ("pdf", "png"):
+        fig.savefig(f"{FIGURES_DIR}/ablation_alpha.{ext}", dpi=300)
+    print(f"Saved: {FIGURES_DIR}/ablation_alpha.png")
+    plt.close(fig)
+
+
 def plot_roc_placeholder(summary=None):
     summary = summary or load_summary()
     return plot_roc_representative(summary)
