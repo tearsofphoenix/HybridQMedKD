@@ -84,22 +84,34 @@ is no longer near-zero.
 \subsection{Hybrid Quantum-Classical Classification}
 Hybrid quantum-classical models couple classical feature extractors with shallow PQCs to keep the
 quantum component small enough for near-term simulation or
-deployment~\cite{cerezo2021vqa,schuld2021machine}. Prior work has explored this idea for image, text,
-and tabular settings, but biomedical tabular benchmarks remain comparatively underused despite their
-natural low-dimensional structure after feature selection or
-PCA~\cite{sagingalieva2023hyperparameter}.
+deployment~\cite{cerezo2021vqa,schuld2021machine}. A central design question is where to insert the
+quantum block: before, within, or after the classical network. Prior work has explored this idea for
+image, text, and tabular settings, but biomedical tabular benchmarks remain comparatively underused
+despite their natural low-dimensional structure after feature selection or
+PCA~\cite{sagingalieva2023hyperparameter}. Shallow ansatze such as \texttt{BasicEntanglerLayers}
+trade expressibility for trainability, reducing the risk of barren plateaus that plague deeper
+circuits~\cite{mcclean2018barren}.
 
 \subsection{Knowledge Distillation for Quantum Models}
 KD transfers information from a stronger teacher to a smaller student through softened targets and has
-become a standard compression tool in classical deep learning~\cite{kd}. Recent QML work has extended
-KD to classical-to-quantum and quantum-to-quantum transfer settings, arguing that a stable classical
+become a standard compression tool in classical deep learning~\cite{kd}. The distillation loss
+interpolates between hard-label cross-entropy and a KL-divergence soft-target term weighted by
+temperature $T$ and mixing coefficient $\alpha$. Recent QML work has extended KD to
+classical-to-quantum and quantum-to-quantum transfer settings, arguing that a stable classical
 teacher can regularize difficult hybrid optimization~\cite{nguyen2022classicalquantum}.
+A largely open question is how the information content of teacher soft outputs---measured by their
+predictive entropy---affects the magnitude of KD benefit, particularly for small biomedical tasks
+where the teacher may already be near-saturated.
 
 \subsection{Biomedical Tabular Classification}
 Biomedical tabular tasks typically involve limited sample size, moderate class imbalance, and a need
-for interpretable, compact models. PCA-based compression is especially relevant when quantum inputs
-must be bounded by the number of available qubits~\cite{sagingalieva2023hyperparameter}. This makes
-WDBC a suitable benchmark for controlled HQC experiments.
+for interpretable, compact models. Classical baselines such as gradient-boosted trees and small MLPs
+are already strong on these benchmarks, raising the bar for any quantum enhancement. PCA-based
+compression is especially relevant when quantum inputs must be bounded by the number of available
+qubits~\cite{sagingalieva2023hyperparameter}. This makes datasets like WDBC, Pima Indians Diabetes,
+and Heart Statlog suitable benchmarks for controlled HQC experiments: they span a range of sample
+sizes, feature dimensions, and task difficulties, enabling cross-dataset analysis of how teacher
+confidence and KD interact with quantum-layer placement.
 
 \section{Method}
 \label{sec:method}
@@ -350,6 +362,33 @@ The supplementary Pima and Heart runs are consistent with the same story: once t
 no longer near-zero, KD can modestly improve hybrid AUC/MCC, but the size and direction of the gain
 remain dataset-dependent rather than monotonic.
 
+\begin{table}[t]
+\caption{Cross-dataset comparison of teacher entropy and KD benefit for the hybrid student.
+$\Delta$ values are computed as Hybrid-KD minus Hybrid-NoKD. Teacher entropy $\bar{H}$ is the
+mean per-sample soft-output entropy averaged over validation folds.}
+\label{tab:cross}
+\centering\small
+\begin{tabular}{lrrrr}
+\toprule
+Dataset & Teacher AUC & $\bar{H}_{\text{val}}$ (bits) & $\Delta$AUC & $\Delta$MCC \\
+\midrule
+WDBC ($N{=}569$)  & 0.994 & 0.100 & $+0.004$ & $-0.007$ \\
+Heart ($N{=}270$) & 0.889 & 0.470 & $+0.012$ & $+0.022$ \\
+Pima ($N{=}768$)  & 0.782 & 0.707 & $+0.006$ & $+0.017$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:cross} summarizes the relationship between teacher entropy and KD benefit across all
+three datasets. The pattern is non-monotonic: the largest hybrid KD gains ($\Delta$AUC $= +0.012$,
+$\Delta$MCC $= +0.022$) occur on Heart Statlog, where the teacher has moderate uncertainty
+(0.471 bits) and moderate reliability (AUC 0.889). On WDBC, the near-saturated teacher provides
+little additional signal, and KD slightly hurts MCC. On Pima, despite the highest teacher entropy,
+the KD benefit is smaller than on Heart, likely because the weaker teacher (AUC 0.782) provides
+less reliable soft targets. This suggests that KD benefit for hybrid students depends on both the
+information content and the predictive quality of teacher soft outputs: a teacher that is too
+confident offers no extra signal, while a teacher that is too uncertain offers noisy signal.
+
 \subsection{Which quantum layer position is best?}
 The placement ablation makes it clear that the quantum layer must not be applied directly to the
 raw PCA vector. Without a classical projection to bound inputs into $[-\pi, \pi]$, angle encoding
@@ -384,13 +423,16 @@ We presented a lightweight hybrid quantum-classical framework for biomedical tab
 classification under a controlled teacher-student pipeline. The central finding is that quantum
 layer placement dominates over both KD and architecture choice: front placement fails consistently
 due to unbounded angle encoding, while middle and tail placement remain competitive. KD improves
-AUC and reduces training time for the hybrid student, but its benefit is modest because the
-teacher's soft outputs carry low entropy on this near-saturated task. These findings support a
+AUC and reduces training time for the hybrid student, but its benefit is modest when the
+teacher's soft outputs carry low entropy on near-saturated tasks (WDBC). Cross-dataset comparison
+reveals a non-monotonic relationship: moderate teacher uncertainty (Heart Statlog) coincides with
+the largest KD gains for the hybrid student, while both near-saturated (WDBC) and highly uncertain
+(Pima) teachers yield diminishing returns. These findings support a
 pragmatic view of HQC modeling: careful architectural placement is necessary, and strong classical
 baselines remain hard to outperform on small biomedical tabular benchmarks. The supplementary Pima
 and Heart examples refine rather than overturn this conclusion: when teacher entropy is no longer
-near-zero, KD can modestly help hybrid AUC/MCC, but the effect remains dataset-dependent and the
-simulation cost stays far above that of the classical alternatives.
+near-zero, KD can modestly help hybrid AUC/MCC, but the effect depends on both teacher entropy and
+teacher reliability, and the simulation cost stays far above that of the classical alternatives.
 
 Future work should expand to additional datasets, evaluate noise-aware settings, and test whether
 the placement effects and KD dynamics observed here persist under broader feature regimes and
@@ -427,7 +469,7 @@ larger $\alpha$ (more soft-target weight) can degrade hybrid student F1/MCC.
 \label{app:pima}
 
 To test whether the WDBC observations transfer to a less saturated biomedical task, we ran the
-same 5-fold protocol on the Pima Indians Diabetes dataset (768 samples, 8 raw features, positive
+same 5-fold protocol on the Pima Indians Diabetes dataset~\cite{pima} (768 samples, 8 raw features, positive
 rate 34.9\%). For this supplementary example we used PCA $d'=4$, $T=2$, and the tail placement
 identified as strongest on WDBC for the hybrid models.
 
@@ -463,7 +505,7 @@ assessment of lightweight classical models.
 \label{app:heart}
 
 To add a second supplementary biomedical benchmark, we ran the same 5-fold protocol on the Heart
-Statlog dataset from OpenML (270 samples, 13 raw features, positive rate 44.4\%). As in the Pima
+Statlog dataset~\cite{heart} (270 samples, 13 raw features, positive rate 44.4\%). As in the Pima
 example, we used PCA $d'=4$, $T=2$, and the tail placement identified as strongest on WDBC for the
 hybrid models.
 
@@ -521,6 +563,11 @@ A.~Sagingalieva et al.,
 ``Hyperparameter Optimization of Hybrid Quantum Neural Networks for Car Classification,''
 \textit{arXiv}:2205.04878v2, 2023.
 
+\bibitem{mcclean2018barren}
+J.~R.~McClean, S.~Boixo, V.~N.~Smelyanskiy, R.~Babbush, and H.~Neven,
+``Barren Plateaus in Quantum Neural Network Training Landscapes,''
+\textit{Nature Communications}, vol.~9, p.~4812, 2018.
+
 \bibitem{nguyen2022classicalquantum}
 Q.~H.~Nguyen et al.,
 ``Classical-to-Quantum Transfer Learning for Spoken Command Recognition Based on Quantum Neural Networks,''
@@ -531,16 +578,24 @@ V.~Bergholm et al.,
 ``PennyLane: Automatic differentiation of hybrid quantum-classical computations,''
 \textit{arXiv}:1811.04968, 2018.
 
-\bibitem{mcclean2018barren}
-J.~R.~McClean, S.~Boixo, V.~N.~Smelyanskiy, R.~Babbush, and H.~Neven,
-``Barren Plateaus in Quantum Neural Network Training Landscapes,''
-\textit{Nature Communications}, vol.~9, p.~4812, 2018.
-
 \bibitem{sim2019expressibility}
 S.~Sim, P.~D.~Johnson, and A.~Aspuru-Guzik,
 ``Expressibility and Entangling Capability of Parameterized Quantum Circuits for Hybrid
 Quantum-Classical Algorithms,''
 \textit{Advanced Quantum Technologies}, vol.~2, no.~12, 2019.
+
+\bibitem{pima}
+J.~W.~Smith, J.~E.~Everhart, W.~C.~Dickson, W.~C.~Knowler, and R.~S.~Johannes,
+``Using the ADAP Learning Algorithm to Forecast the Onset of Diabetes Mellitus,''
+\textit{Proceedings of the Annual Symposium on Computer Applications in Medical Care},
+pp.~261--265, 1988.
+
+\bibitem{heart}
+R.~Detrano, A.~Janosi, W.~Steinbrunn, M.~Pfisterer, J.-J.~Schmid, S.~Sandhu,
+K.~M.~Guppy, S.~Lee, and V.~Froelicher,
+``International Application of a New Probability Algorithm for the Diagnosis of Coronary
+Artery Disease,''
+\textit{The American Journal of Cardiology}, vol.~64, no.~5, pp.~304--310, 1989.
 
 \end{thebibliography}
 

@@ -27,6 +27,7 @@
 5. Fixed `src/analysis/plot_results.py` so `plot_ablation_alpha` accepts JSON-loaded string keys and generated `outputs/figures/ablation_alpha.pdf/png`.
 6. Updated the additional-dataset appendix note to reflect that Pima dataset preparation and a smoke run exist, but the full multi-dataset pipeline has not yet been executed.
 7. Compiled `paper/main.pdf` successfully with local TeX packages installed under `.texmf`.
+8. Rebuilt `paper/main.pdf` again on user request with `TEXMFHOME="$PWD/../.texmf"`; verified output timestamp `2026-03-29 19:27:38 CST`, size `268112` bytes, and stable SHA256 `0d33b0d1f5107ea13c3cfdf331a87efa70037599c937c0cb50547c27065ec409`.
 
 ## Remaining limitations
 

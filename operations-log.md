@@ -10,3 +10,4 @@
 - 2026-03-29 Codex: completed the real alpha sweep in session 58898 and produced `outputs/tables/ablation_alpha_0.3_folds.csv`, `ablation_alpha_0.5_folds.csv`, `ablation_alpha_0.7_folds.csv`, and `ablation_alpha.json`.
 - 2026-03-29 Codex: fixed `plot_ablation_alpha` to normalize JSON string keys and generated `outputs/figures/ablation_alpha.pdf` and `ablation_alpha.png`.
 - 2026-03-29 Codex: updated `paper/main.tex` with real alpha values and regenerated `paper/main.pdf`.
+- 2026-03-29 Codex: on user request, rebuilt `paper/main.pdf` with `TEXMFHOME="$PWD/../.texmf"` and verified the refreshed artifact timestamp `2026-03-29 19:27:38 CST`.
