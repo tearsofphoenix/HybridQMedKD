@@ -358,14 +358,14 @@ The hybrid layer therefore behaves more like a research probe than a cost-effect
 choice on this dataset.
 
 \subsection{Limitations}
-This study uses a single biomedical dataset and noiseless simulation on PennyLane's
-\texttt{default.qubit}~\cite{pennylane}. The single-dataset design is a primary limitation:
-results on WDBC---which is near-saturated by all models---may not generalize to more challenging
-or higher-dimensional biomedical tabular settings. We do not evaluate shot noise, hardware noise,
-or calibration drift. The $\alpha$ sweep is reported only for tail placement on WDBC, so the
-interaction between KD weight, placement, and dataset difficulty remains underexplored.
-Future work should include at least one additional benchmark (e.g., Pima Indians Diabetes or
-Heart Disease UCI) to test whether the placement and KD findings observed here generalize.
+This study uses noiseless simulation on PennyLane's \texttt{default.qubit}~\cite{pennylane} and
+focuses its main ablation analysis on WDBC. Although Appendix~\ref{app:pima} now adds one real
+additional benchmark (Pima Diabetes), broader generalization is still limited: we do not yet have
+matching placement or $\alpha$ ablations across multiple datasets, nor do we evaluate shot noise,
+hardware noise, or calibration drift. The $\alpha$ sweep is reported only for tail placement on
+WDBC, so the interaction between KD weight, placement, and dataset difficulty remains underexplored.
+Future work should extend the same protocol to further biomedical tabular datasets such as
+Heart Disease UCI and to noise-aware simulations or hardware execution.
 
 \section{Conclusion}
 \label{sec:conc}
@@ -410,27 +410,41 @@ and its soft targets provide only limited additional signal relative to one-hot 
 This helps explain why KD offers limited benefit to the classical student and why
 larger $\alpha$ (more soft-target weight) can degrade hybrid student F1/MCC.
 
-\section{Additional Dataset Placeholder}
-\label{app:datasets}
+\section{Additional Dataset Example: Pima Diabetes}
+\label{app:pima}
 
-\textbf{Current status:} Dataset preparation for Pima Indians Diabetes (UCI) has been completed
-and a smoke run is available in \texttt{outputs/pima\_smoke/}, but the full 5-fold comparison
-pipeline has not yet been executed for either Pima or Heart Disease. We therefore report only
-the dataset statistics here and leave multi-dataset conclusions for the next revision.
+To test whether the WDBC observations transfer to a less saturated biomedical task, we ran the
+same 5-fold protocol on the Pima Indians Diabetes dataset (768 samples, 8 raw features, positive
+rate 34.9\%). For this supplementary example we used PCA $d'=4$, $T=2$, and the tail placement
+identified as strongest on WDBC for the hybrid models.
 
 \begin{table}[h]
-\caption{Planned additional dataset statistics.}
-\label{tab:extra_data}
+\caption{Pima Diabetes main results (5-fold CV, PCA $d'=4$).}
+\label{tab:pima_main}
 \centering\small
-\begin{tabular}{lccc}
+\begin{tabular}{lccccc}
 \toprule
-Dataset & Samples & Features & Positive Rate \\
+Model & AUC & F1 & MCC & Train (s/fold) & Infer (ms/fold) \\
 \midrule
-Pima Diabetes (UCI) & 768 & 8 & 34.9\% \\
-Heart Disease (UCI) & 303 & 13 & 54.5\% \\
+Teacher (MLP-64-32) & $0.7817 \pm 0.0336$ & $0.5706 \pm 0.0641$ & $0.3671 \pm 0.0817$ & $0.39 \pm 0.02$ & $<1$ \\
+\midrule
+Student-Classic     & $0.7816 \pm 0.0290$ & $0.5752 \pm 0.0821$ & $0.3774 \pm 0.0983$ & $0.32 \pm 0.01$ & $<1$ \\
+Student-Classic-KD  & $0.7781 \pm 0.0346$ & $0.5701 \pm 0.0721$ & $0.3665 \pm 0.0914$ & $0.60 \pm 0.02$ & $<1$ \\
+Student-Hybrid-NoKD & $0.7793 \pm 0.0286$ & $0.5941 \pm 0.0653$ & $0.3690 \pm 0.0866$ & $606.69 \pm 100.33$ & $\sim$165 \\
+Student-Hybrid-KD   & $0.7852 \pm 0.0334$ & $0.5800 \pm 0.0700$ & $0.3861 \pm 0.0908$ & $617.33 \pm 14.21$ & $\sim$168 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+The Pima example paints a different KD picture from WDBC. The teacher's mean soft-output entropy is
+$0.704$ bits on training folds and $0.707$ bits on validation folds, with only about 14\% of
+predictions satisfying $|p-0.5|>0.45$. This indicates substantially richer soft targets than on
+WDBC. Correspondingly, the KD hybrid achieves the best AUC and MCC on Pima, while the non-distilled
+hybrid retains the best F1. Even so, the practical conclusion remains similar: the hybrid models are
+roughly three orders of magnitude slower to train than the classical baselines, so the metric gains
+are modest relative to simulation cost. We therefore view Pima as supportive evidence that KD can
+matter more when teacher entropy is higher, but not yet enough to overturn the overall cost-benefit
+assessment of lightweight classical models.
 
 % -----------------------------------------------------------------------
 \begin{thebibliography}{99}
