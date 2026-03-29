@@ -1,16 +1,21 @@
 import os
 from src.utils.seed import set_seed
-from src.utils.io import save_metrics_csv, save_config_json
+from src.utils.io import (
+    get_outputs_dir,
+    resolve_repo_path,
+    save_config_json,
+    save_metrics_csv,
+)
 from src.utils.metrics import aggregate_fold_metrics
 from src.trainers.train_teacher import train_teacher_cv
 from src.trainers.train_student import run_student_cv
 
-CSV_PATH = "data/raw/wdbc.csv"
+CSV_PATH = resolve_repo_path("data", "raw", "wdbc.csv")
 PCA_DIM = 4
 N_QUBITS = 4
 N_SPLITS = 5
 SEED = 42
-OUTPUT_DIR = "outputs"
+OUTPUT_DIR = get_outputs_dir()
 
 
 def main():

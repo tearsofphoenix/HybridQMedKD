@@ -5,9 +5,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from src.utils.io import get_figures_dir, get_tables_dir
 
-OUTPUT_DIR = "outputs"
-FIGURES_DIR = os.path.join(OUTPUT_DIR, "figures")
+FIGURES_DIR = get_figures_dir()
 os.makedirs(FIGURES_DIR, exist_ok=True)
 
 MODEL_LABELS = {
@@ -20,7 +20,8 @@ COLORS = ["#4C72B0", "#55A868", "#C44E52", "#DD8452"]
 COLOR_MAP = dict(zip(MODEL_LABELS.keys(), COLORS))
 
 
-def load_summary(path="outputs/tables/summary.json"):
+def load_summary(path=None):
+    path = path or get_tables_dir("summary.json")
     with open(path) as f:
         return json.load(f)
 
@@ -39,7 +40,8 @@ def plot_roc_representative(summary):
         fpr = t
         tpr = 1 - (1 - t) ** a
         # Normalise so AUC matches target
-        actual = np.trapz(tpr, fpr)
+        area_fn = getattr(np, "trapezoid", None) or np.trapz
+        actual = area_fn(tpr, fpr)
         if actual > 0:
             tpr = np.clip(tpr * (target_auc / actual), 0, 1)
         return fpr, tpr
@@ -187,6 +189,11 @@ def plot_ablation_pca(results_dict):
         fig.savefig(f"{FIGURES_DIR}/ablation_pca.{ext}", dpi=300)
     print(f"Saved: {FIGURES_DIR}/ablation_pca.png")
     plt.close(fig)
+
+
+def plot_roc_placeholder(summary=None):
+    summary = summary or load_summary()
+    return plot_roc_representative(summary)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from src.models.student_classic import StudentClassic
 from src.models.student_hybrid import StudentHybrid
 from src.losses.distill import kd_loss
 from src.trainers.evaluate import evaluate_binary
+from src.utils.io import get_tables_dir, save_metrics_csv
 
 
 def fit_student(
@@ -138,5 +139,10 @@ def run_student_cv(
     for k in ["auc", "f1", "acc", "mcc"]:
         vals = [m[k] for m in all_metrics]
         print(f"[{exp_name}] {k}: {np.mean(vals):.4f} +/- {np.std(vals):.4f}")
+
+    if exp_name:
+        output_path = get_tables_dir(f"{exp_name}_folds.csv")
+        save_metrics_csv(all_metrics, output_path)
+        print(f"[{exp_name}] Saved fold metrics to {output_path}")
 
     return all_metrics
