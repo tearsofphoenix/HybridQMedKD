@@ -29,15 +29,18 @@ NISQ-era resource constraints, but their value on small biomedical tabular probl
 We study a lightweight teacher-student pipeline that combines PCA-based feature compression, a compact
 classical student, and a 4-qubit parameterized quantum layer. We compare classical and hybrid students
 with and without knowledge distillation (KD), and we ablate quantum layer placement, PCA dimension,
-and KD weight on the Breast Cancer Wisconsin Diagnostic (WDBC) dataset using 5-fold cross-validation.
+and KD weight on the Breast Cancer Wisconsin Diagnostic (WDBC) dataset using 5-fold cross-validation,
+then validate the main KD intuition with a supplementary full-example run on Pima Diabetes.
 Experimental results show that the hybrid student with KD reaches AUC $0.9931 \pm 0.0054$, matching
 the KD classical student in AUC, while the hybrid student without KD achieves the best hybrid F1
 ($0.9442 \pm 0.0220$). However, hybrid models require $276$--$330$ seconds per fold (KD to no-KD)
 versus sub-second classical training, so the performance gains are insufficient to justify the
 additional simulation cost on this dataset. The central finding is that quantum layer placement
 dominates over KD or architecture choice: front placement fails severely due to out-of-range angle
-encoding, whereas middle and tail placement remain competitive. These results suggest that careful
-placement and compression design matter more than simply adding a quantum layer.
+encoding, whereas middle and tail placement remain competitive. On Pima, higher teacher entropy
+coincides with a modest KD benefit for the hybrid model, but the cost gap remains dominant. These
+results suggest that careful placement and compression design matter more than simply adding a
+quantum layer.
 \end{abstract}
 
 \section{Introduction}
@@ -68,9 +71,10 @@ considering both training and inference time?
 
 Our contributions are as follows. First, we benchmark classical and hybrid students under the same
 5-fold protocol with a classical teacher baseline, reporting both training and inference time. Second,
-we ablate quantum layer placement, PCA dimension, and KD weight $\alpha$. Third, we provide a circuit
-diagram and expressibility discussion for the chosen ansatz. Fourth, we include an analysis of teacher
-soft-output entropy to contextualize the limited KD benefit.
+we ablate quantum layer placement, PCA dimension, and KD weight $\alpha$ on WDBC. Third, we provide
+a circuit diagram and expressibility discussion for the chosen ansatz. Fourth, we include an analysis
+of teacher soft-output entropy to contextualize the limited KD benefit. Fifth, we add a supplementary
+Pima Diabetes benchmark showing how the KD picture changes when teacher entropy is substantially higher.
 
 \section{Related Work}
 \label{sec:rw}
@@ -377,7 +381,10 @@ due to unbounded angle encoding, while middle and tail placement remain competit
 AUC and reduces training time for the hybrid student, but its benefit is modest because the
 teacher's soft outputs carry low entropy on this near-saturated task. These findings support a
 pragmatic view of HQC modeling: careful architectural placement is necessary, and strong classical
-baselines remain hard to outperform on small biomedical tabular benchmarks.
+baselines remain hard to outperform on small biomedical tabular benchmarks. The supplementary Pima
+example refines rather than overturns this conclusion: when teacher entropy is higher, KD can help
+the hybrid model more noticeably on AUC/MCC, yet the simulation cost remains far above that of the
+classical alternatives.
 
 Future work should expand to additional datasets, evaluate noise-aware settings, and test whether
 the placement effects and KD dynamics observed here persist under broader feature regimes and
