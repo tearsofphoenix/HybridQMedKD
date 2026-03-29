@@ -30,17 +30,18 @@ We study a lightweight teacher-student pipeline that combines PCA-based feature 
 classical student, and a 4-qubit parameterized quantum layer. We compare classical and hybrid students
 with and without knowledge distillation (KD), and we ablate quantum layer placement, PCA dimension,
 and KD weight on the Breast Cancer Wisconsin Diagnostic (WDBC) dataset using 5-fold cross-validation,
-then validate the main KD intuition with a supplementary full-example run on Pima Diabetes.
+then validate the main KD intuition with supplementary full-example runs on Pima Diabetes and
+Heart Statlog.
 Experimental results show that the hybrid student with KD reaches AUC $0.9931 \pm 0.0054$, matching
 the KD classical student in AUC, while the hybrid student without KD achieves the best hybrid F1
 ($0.9442 \pm 0.0220$). However, hybrid models require $276$--$330$ seconds per fold (KD to no-KD)
 versus sub-second classical training, so the performance gains are insufficient to justify the
 additional simulation cost on this dataset. The central finding is that quantum layer placement
 dominates over KD or architecture choice: front placement fails severely due to out-of-range angle
-encoding, whereas middle and tail placement remain competitive. On Pima, higher teacher entropy
-coincides with a modest KD benefit for the hybrid model, but the cost gap remains dominant. These
-results suggest that careful placement and compression design matter more than simply adding a
-quantum layer.
+encoding, whereas middle and tail placement remain competitive. On the supplementary Pima and Heart
+runs, non-saturated teacher outputs coincide with modest hybrid AUC/MCC gains under KD, but the
+cost gap remains dominant. These results suggest that careful placement and compression design
+matter more than simply adding a quantum layer.
 \end{abstract}
 
 \section{Introduction}
@@ -73,8 +74,9 @@ Our contributions are as follows. First, we benchmark classical and hybrid stude
 5-fold protocol with a classical teacher baseline, reporting both training and inference time. Second,
 we ablate quantum layer placement, PCA dimension, and KD weight $\alpha$ on WDBC. Third, we provide
 a circuit diagram and expressibility discussion for the chosen ansatz. Fourth, we include an analysis
-of teacher soft-output entropy to contextualize the limited KD benefit. Fifth, we add a supplementary
-Pima Diabetes benchmark showing how the KD picture changes when teacher entropy is substantially higher.
+of teacher soft-output entropy to contextualize the limited KD benefit. Fifth, we add supplementary
+Pima Diabetes and Heart Statlog benchmarks showing how the KD picture changes when teacher entropy
+is no longer near-zero.
 
 \section{Related Work}
 \label{sec:rw}
@@ -344,6 +346,9 @@ shows a metric-dependent trade-off rather than a monotone pattern: $\alpha=0.3$ 
 but $\alpha=0.5$ and $\alpha=0.7$ achieve higher F1/MCC. This is still consistent with the low but
 non-zero entropy reported in Appendix~\ref{app:entropy}: the teacher's soft predictions are highly
 confident, yet they retain enough structure to affect thresholded metrics when given moderate weight.
+The supplementary Pima and Heart runs are consistent with the same story: once teacher entropy is
+no longer near-zero, KD can modestly improve hybrid AUC/MCC, but the size and direction of the gain
+remain dataset-dependent rather than monotonic.
 
 \subsection{Which quantum layer position is best?}
 The placement ablation makes it clear that the quantum layer must not be applied directly to the
@@ -363,13 +368,14 @@ choice on this dataset.
 
 \subsection{Limitations}
 This study uses noiseless simulation on PennyLane's \texttt{default.qubit}~\cite{pennylane} and
-focuses its main ablation analysis on WDBC. Although Appendix~\ref{app:pima} now adds one real
-additional benchmark (Pima Diabetes), broader generalization is still limited: we do not yet have
-matching placement or $\alpha$ ablations across multiple datasets, nor do we evaluate shot noise,
-hardware noise, or calibration drift. The $\alpha$ sweep is reported only for tail placement on
-WDBC, so the interaction between KD weight, placement, and dataset difficulty remains underexplored.
-Future work should extend the same protocol to further biomedical tabular datasets such as
-Heart Disease UCI and to noise-aware simulations or hardware execution.
+focuses its main ablation analysis on WDBC. Although Appendices~\ref{app:pima} and \ref{app:heart}
+now add two real additional benchmarks (Pima Diabetes and Heart Statlog), broader generalization is
+still limited: we do not yet have matching placement or $\alpha$ ablations across multiple
+additional datasets, nor do we evaluate shot noise, hardware noise, or calibration drift. The
+$\alpha$ sweep is reported only for tail placement on WDBC, so the interaction between KD weight,
+placement, and dataset difficulty remains underexplored. Future work should extend the same
+protocol to broader biomedical tabular datasets and to noise-aware simulations or hardware
+execution.
 
 \section{Conclusion}
 \label{sec:conc}
@@ -382,9 +388,9 @@ AUC and reduces training time for the hybrid student, but its benefit is modest 
 teacher's soft outputs carry low entropy on this near-saturated task. These findings support a
 pragmatic view of HQC modeling: careful architectural placement is necessary, and strong classical
 baselines remain hard to outperform on small biomedical tabular benchmarks. The supplementary Pima
-example refines rather than overturns this conclusion: when teacher entropy is higher, KD can help
-the hybrid model more noticeably on AUC/MCC, yet the simulation cost remains far above that of the
-classical alternatives.
+and Heart examples refine rather than overturn this conclusion: when teacher entropy is no longer
+near-zero, KD can modestly help hybrid AUC/MCC, but the effect remains dataset-dependent and the
+simulation cost stays far above that of the classical alternatives.
 
 Future work should expand to additional datasets, evaluate noise-aware settings, and test whether
 the placement effects and KD dynamics observed here persist under broader feature regimes and
@@ -452,6 +458,41 @@ roughly three orders of magnitude slower to train than the classical baselines, 
 are modest relative to simulation cost. We therefore view Pima as supportive evidence that KD can
 matter more when teacher entropy is higher, but not yet enough to overturn the overall cost-benefit
 assessment of lightweight classical models.
+
+\section{Additional Dataset Example: Heart Statlog}
+\label{app:heart}
+
+To add a second supplementary biomedical benchmark, we ran the same 5-fold protocol on the Heart
+Statlog dataset from OpenML (270 samples, 13 raw features, positive rate 44.4\%). As in the Pima
+example, we used PCA $d'=4$, $T=2$, and the tail placement identified as strongest on WDBC for the
+hybrid models.
+
+\begin{table}[h]
+\caption{Heart Statlog main results (5-fold CV, PCA $d'=4$).}
+\label{tab:heart_main}
+\centering\small
+\begin{tabular}{lccccc}
+\toprule
+Model & AUC & F1 & MCC & Train (s/fold) & Infer (ms/fold) \\
+\midrule
+Teacher (MLP-64-32) & $0.8894 \pm 0.0543$ & $0.7932 \pm 0.0774$ & $0.6266 \pm 0.1415$ & $0.15 \pm 0.02$ & $<1$ \\
+\midrule
+Student-Classic     & $0.8878 \pm 0.0552$ & $0.8070 \pm 0.0706$ & $0.6643 \pm 0.1208$ & $0.12 \pm 0.00$ & $<1$ \\
+Student-Classic-KD  & $0.8892 \pm 0.0470$ & $0.8031 \pm 0.0727$ & $0.6547 \pm 0.1205$ & $0.22 \pm 0.00$ & $<1$ \\
+Student-Hybrid-NoKD & $0.8736 \pm 0.0704$ & $0.7841 \pm 0.0860$ & $0.6116 \pm 0.1595$ & $221.48 \pm 4.68$ & $\sim$65 \\
+Student-Hybrid-KD   & $0.8857 \pm 0.0533$ & $0.7968 \pm 0.0760$ & $0.6340 \pm 0.1392$ & $214.08 \pm 9.04$ & $\sim$62 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Heart Statlog lands between WDBC and Pima in teacher uncertainty. The teacher's mean soft-output
+entropy is $0.471$ bits on training folds and $0.470$ bits on validation folds, with high-confidence
+fractions of $38.1\%$ and $36.3\%$, respectively. Compared with the non-distilled hybrid, the KD
+hybrid improves AUC from $0.8736$ to $0.8857$, MCC from $0.6116$ to $0.6340$, and slightly reduces
+training time, but it still does not surpass the classical student on thresholded metrics. The
+Heart example therefore supports a narrower version of the Pima conclusion: richer teacher
+uncertainty can make KD more useful for the hybrid model, yet the overall cost-benefit picture
+still favors lightweight classical baselines.
 
 % -----------------------------------------------------------------------
 \begin{thebibliography}{99}
