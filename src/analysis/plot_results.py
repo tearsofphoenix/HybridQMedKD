@@ -157,7 +157,7 @@ def plot_ablation_position(results_dict):
     ax.set_xticks(x + width)
     ax.set_xticklabels([p.capitalize() for p in positions], fontsize=10)
     ax.set_ylim(0.5, 1.05)
-    ax.set_ylabel("Score", fontsize=11)
+    ax.set_ylabel("Score (AUC / F1 / MCC)", fontsize=11)
     ax.set_title("Ablation: Quantum Layer Position", fontsize=11)
     ax.legend(fontsize=10)
     fig.tight_layout()
@@ -180,7 +180,7 @@ def plot_ablation_pca(results_dict):
     ax.plot(dims, f1_vals, marker="s",
             label="F1",  color=COLORS[1])
     ax.set_xlabel("PCA Dimension", fontsize=11)
-    ax.set_ylabel("Score", fontsize=11)
+    ax.set_ylabel("Score (AUC / F1)", fontsize=11)
     ax.set_title("Ablation: PCA Input Dimension", fontsize=11)
     ax.set_xticks(dims)
     ax.legend(fontsize=10)
@@ -192,7 +192,7 @@ def plot_ablation_pca(results_dict):
 
 
 def plot_ablation_alpha(results_dict):
-    """Line chart: AUC/F1 vs KD alpha."""
+    """Line chart: AUC/F1/MCC vs KD alpha."""
     normalized = {float(a): stats for a, stats in results_dict.items()}
     alphas = sorted(normalized.keys())
     auc_vals = [normalized[a].get("auc", {}).get("mean", 0) for a in alphas]
@@ -203,9 +203,9 @@ def plot_ablation_alpha(results_dict):
     ax.plot(alphas, auc_vals, marker="o", label="AUC", color=COLORS[0])
     ax.plot(alphas, f1_vals, marker="s", label="F1", color=COLORS[1])
     ax.plot(alphas, mcc_vals, marker="^", label="MCC", color=COLORS[2])
-    ax.set_xlabel("KD Weight α", fontsize=11)
-    ax.set_ylabel("Score", fontsize=11)
-    ax.set_title("Ablation: KD Weight α", fontsize=11)
+    ax.set_xlabel(r"KD Weight $\alpha$", fontsize=11)
+    ax.set_ylabel("Score (AUC / F1 / MCC)", fontsize=11)
+    ax.set_title(r"Ablation: KD Weight $\alpha$", fontsize=11)
     ax.set_xticks(alphas)
     ax.legend(fontsize=10)
     fig.tight_layout()

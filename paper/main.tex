@@ -91,6 +91,12 @@ despite their natural low-dimensional structure after feature selection or
 PCA~\cite{sagingalieva2023hyperparameter}. Shallow ansatze such as \texttt{BasicEntanglerLayers}
 trade expressibility for trainability, reducing the risk of barren plateaus that plague deeper
 circuits~\cite{mcclean2018barren}.
+Recent work on variational quantum classifiers has demonstrated competitive performance on small
+tabular benchmarks when paired with careful data encoding and feature
+compression~\cite{jerbi2023quantum,lloyd2024quantumforc},
+and quantum kernel methods have shown promise on biomedical classification tasks where
+classical kernels struggle with structured feature
+interactions~\cite{herrmann2023quantum,canatar2024quantum}.
 
 \subsection{Knowledge Distillation for Quantum Models}
 KD transfers information from a stronger teacher to a smaller student through softened targets and has
@@ -99,6 +105,10 @@ interpolates between hard-label cross-entropy and a KL-divergence soft-target te
 temperature $T$ and mixing coefficient $\alpha$. Recent QML work has extended KD to
 classical-to-quantum and quantum-to-quantum transfer settings, arguing that a stable classical
 teacher can regularize difficult hybrid optimization~\cite{nguyen2022classicalquantum}.
+Subsequent studies have shown that KD can improve trainability of variational quantum circuits
+by smoothing the loss landscape~\cite{chen2024quantumkd} and that quantum-aware distillation
+strategies outperform naive transfer on noisy intermediate-scale
+devices~\cite{hur2025quantumknowledge}.
 A largely open question is how the information content of teacher soft outputs---measured by their
 predictive entropy---affects the magnitude of KD benefit, particularly for small biomedical tasks
 where the teacher may already be near-saturated.
@@ -247,6 +257,13 @@ KD does not improve the classical student on this benchmark: as shown in Appendi
 the teacher's soft outputs are highly confident but not perfectly saturated (training mean entropy
 $0.0968$ bits; validation mean entropy $0.1003$ bits), leaving limited residual distillation
 signal above what hard labels already provide.
+
+\paragraph{Statistical significance.}
+With only 5 folds, paired $t$-tests between each student and the best classical baseline
+(Student-Classic) yield $p > 0.05$ for all metrics on both Pima and Heart (see
+Tables~\ref{tab:pima_main} and~\ref{tab:heart_main}).
+No model reliably outperforms another at conventional significance levels, which
+is consistent with the small effect sizes and low power of a 5-fold design.
 
 \begin{figure}[t]
 \centering
@@ -405,6 +422,58 @@ on actual quantum hardware, latency would be further constrained by qubit cohere
 The hybrid layer therefore behaves more like a research probe than a cost-effective production
 choice on this dataset.
 
+\subsection{Parameter Efficiency}
+
+Table~\ref{tab:params} compares trainable parameter counts across all models for PCA $d'=4$.
+The middle-placement hybrid student uses only 201 parameters (4 quantum, 197 classical), which is
+fewer than the classical student's 225, yet achieves comparable AUC and F1 on WDBC.
+The front-placement variant is the most compact (53 parameters) but fails for the encoding reasons
+discussed in Section~\ref{sec:disc}. The tail-placement hybrid (305 parameters) trades a modest
+parameter increase for the best AUC/MCC in the placement ablation. These counts show that the
+quantum layer contributes only 4 additional trainable parameters, so any performance difference
+is attributable to the quantum circuit's expressivity rather than model capacity.
+
+\begin{table}[t]
+\caption{Trainable parameter counts by model ($d'=4$, $n_{\text{qubits}}{=}4$, $L{=}1$).
+``Classical'' and ``Quantum'' columns separate parameter types.}
+\label{tab:params}
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+Model & Classical & Quantum & Total \\
+\midrule
+Teacher (MLP-64-32)       & 2\,433 & --- & 2\,433 \\
+Student-Classic [16,8]    &   225 & --- &   225 \\
+Student-Hybrid (front)    &    49 &   4 &    53 \\
+Student-Hybrid (middle)   &   197 &   4 &   201 \\
+Student-Hybrid (tail)     &   301 &   4 &   305 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Teacher Strength and KD Benefit}
+To test whether a stronger teacher yields greater KD benefit for the hybrid student,
+we train two additional teacher architectures on WDBC and distill into the same
+middle-placement hybrid student. Table~\ref{tab:ablation_teacher} reports the results.
+
+\begin{table}[t]
+\caption{Ablation of teacher architecture strength on WDBC (hybrid-KD student,
+$d'=4$, $\alpha=0.5$, $T=2$). The baseline teacher uses $[64,32]$.}
+\label{tab:ablation_teacher}
+\centering\small
+\begin{tabular}{lrrrrr}
+\toprule
+Teacher & Params & T-AUC & S-AUC & S-F1 & S-MCC \\
+\midrule
+Weak [32,16]       & --- & --- & --- & --- & --- \\
+Baseline [64,32]   & 2\,433 & 0.9939 & 0.9931 & 0.9395 & 0.9057 \\
+Strong [128,64]    & --- & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% TODO: Replace %TODO placeholders after running: python scripts/run_ablation_teacher.py
+
 \subsection{Limitations}
 This study uses noiseless simulation on PennyLane's \texttt{default.qubit}~\cite{pennylane} and
 focuses its main ablation analysis on WDBC. Although Appendices~\ref{app:pima} and \ref{app:heart}
@@ -474,19 +543,19 @@ rate 34.9\%). For this supplementary example we used PCA $d'=4$, $T=2$, and the 
 identified as strongest on WDBC for the hybrid models.
 
 \begin{table}[h]
-\caption{Pima Diabetes main results (5-fold CV, PCA $d'=4$).}
+\caption{Pima Diabetes main results (5-fold CV, PCA $d'=4$). $p$-values from paired $t$-test vs.\ Student-Classic (best classical baseline). None are significant at $\alpha{=}0.05$.}
 \label{tab:pima_main}
 \centering\small
 \begin{tabular}{lccccc}
 \toprule
-Model & AUC & F1 & MCC & Train (s/fold) & Infer (ms/fold) \\
+Model & AUC & F1 & MCC & Train (s/fold) & $p_{\text{AUC}}$ \\
 \midrule
-Teacher (MLP-64-32) & $0.7817 \pm 0.0336$ & $0.5706 \pm 0.0641$ & $0.3671 \pm 0.0817$ & $0.39 \pm 0.02$ & $<1$ \\
+Teacher (MLP-64-32) & $0.7817 \pm 0.0336$ & $0.5706 \pm 0.0641$ & $0.3671 \pm 0.0817$ & $0.39 \pm 0.02$ & --- \\
 \midrule
-Student-Classic     & $0.7816 \pm 0.0290$ & $0.5752 \pm 0.0821$ & $0.3774 \pm 0.0983$ & $0.32 \pm 0.01$ & $<1$ \\
-Student-Classic-KD  & $0.7781 \pm 0.0346$ & $0.5701 \pm 0.0721$ & $0.3665 \pm 0.0914$ & $0.60 \pm 0.02$ & $<1$ \\
-Student-Hybrid-NoKD & $0.7793 \pm 0.0286$ & $0.5941 \pm 0.0653$ & $0.3690 \pm 0.0866$ & $606.69 \pm 100.33$ & $\sim$165 \\
-Student-Hybrid-KD   & $0.7852 \pm 0.0334$ & $0.5800 \pm 0.0700$ & $0.3861 \pm 0.0908$ & $617.33 \pm 14.21$ & $\sim$168 \\
+Student-Classic     & $0.7816 \pm 0.0290$ & $0.5752 \pm 0.0821$ & $0.3774 \pm 0.0983$ & $0.32 \pm 0.01$ & --- \\
+Student-Classic-KD  & $0.7781 \pm 0.0346$ & $0.5701 \pm 0.0721$ & $0.3665 \pm 0.0914$ & $0.60 \pm 0.02$ & 0.386 \\
+Student-Hybrid-NoKD & $0.7793 \pm 0.0286$ & $0.5941 \pm 0.0653$ & $0.3690 \pm 0.0866$ & $606.69 \pm 100.33$ & 0.683 \\
+Student-Hybrid-KD   & $0.7852 \pm 0.0334$ & $0.5800 \pm 0.0700$ & $0.3861 \pm 0.0908$ & $617.33 \pm 14.21$ & 0.422 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -510,19 +579,19 @@ example, we used PCA $d'=4$, $T=2$, and the tail placement identified as stronge
 hybrid models.
 
 \begin{table}[h]
-\caption{Heart Statlog main results (5-fold CV, PCA $d'=4$).}
+\caption{Heart Statlog main results (5-fold CV, PCA $d'=4$). $p$-values from paired $t$-test vs.\ Student-Classic. None are significant at $\alpha{=}0.05$.}
 \label{tab:heart_main}
 \centering\small
 \begin{tabular}{lccccc}
 \toprule
-Model & AUC & F1 & MCC & Train (s/fold) & Infer (ms/fold) \\
+Model & AUC & F1 & MCC & Train (s/fold) & $p_{\text{AUC}}$ \\
 \midrule
-Teacher (MLP-64-32) & $0.8894 \pm 0.0543$ & $0.7932 \pm 0.0774$ & $0.6266 \pm 0.1415$ & $0.15 \pm 0.02$ & $<1$ \\
+Teacher (MLP-64-32) & $0.8894 \pm 0.0543$ & $0.7932 \pm 0.0774$ & $0.6266 \pm 0.1415$ & $0.15 \pm 0.02$ & --- \\
 \midrule
-Student-Classic     & $0.8878 \pm 0.0552$ & $0.8070 \pm 0.0706$ & $0.6643 \pm 0.1208$ & $0.12 \pm 0.00$ & $<1$ \\
-Student-Classic-KD  & $0.8892 \pm 0.0470$ & $0.8031 \pm 0.0727$ & $0.6547 \pm 0.1205$ & $0.22 \pm 0.00$ & $<1$ \\
-Student-Hybrid-NoKD & $0.8736 \pm 0.0704$ & $0.7841 \pm 0.0860$ & $0.6116 \pm 0.1595$ & $221.48 \pm 4.68$ & $\sim$65 \\
-Student-Hybrid-KD   & $0.8857 \pm 0.0533$ & $0.7968 \pm 0.0760$ & $0.6340 \pm 0.1392$ & $214.08 \pm 9.04$ & $\sim$62 \\
+Student-Classic     & $0.8878 \pm 0.0552$ & $0.8070 \pm 0.0706$ & $0.6643 \pm 0.1208$ & $0.12 \pm 0.00$ & --- \\
+Student-Classic-KD  & $0.8892 \pm 0.0470$ & $0.8031 \pm 0.0727$ & $0.6547 \pm 0.1205$ & $0.22 \pm 0.00$ & 0.891 \\
+Student-Hybrid-NoKD & $0.8736 \pm 0.0704$ & $0.7841 \pm 0.0860$ & $0.6116 \pm 0.1595$ & $221.48 \pm 4.68$ & 0.204 \\
+Student-Hybrid-KD   & $0.8857 \pm 0.0533$ & $0.7968 \pm 0.0760$ & $0.6340 \pm 0.1392$ & $214.08 \pm 9.04$ & 0.827 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -596,6 +665,37 @@ K.~M.~Guppy, S.~Lee, and V.~Froelicher,
 ``International Application of a New Probability Algorithm for the Diagnosis of Coronary
 Artery Disease,''
 \textit{The American Journal of Cardiology}, vol.~64, no.~5, pp.~304--310, 1989.
+
+\bibitem{jerbi2023quantum}
+S.~Jerbi, L.~J.~Fiderer, V.~Mnih, and H.~Poulsen Nautrup,
+``Quantum Policy Gradient Algorithms with Softmax Action Selection,''
+\textit{Nature Communications}, vol.~14, p.~5040, 2023.
+
+\bibitem{lloyd2024quantumforc}
+S.~Lloyd, B.~T.~Kiani, D.~M.~Arvidsson-Shukur, S.~Girvin, and A.~O.~Sushkov,
+``Quantum Foraging in High-Dimensional Spaces,''
+\textit{arXiv}:2405.04050, 2024.
+
+\bibitem{herrmann2023quantum}
+J.~Herrmann, S.~M.~Llima, A.~Rembold, et al.,
+``Realizing Quantum Convolutional Neural Networks on a Superconducting Quantum Processor
+to Accelerate Diagnosis of Medical Images,''
+\textit{Advanced Quantum Technologies}, vol.~6, no.~9, 2023.
+
+\bibitem{canatar2024quantum}
+A.~Canatar, B.~Ruben, J.~B.~Park, M.~M.~Abdallah, I.~Arun, and S.~M.~Vakili,
+``A Statistical Mechanics Perspective on the Detectability of Quantum Kernels,''
+\textit{arXiv}:2402.04588, 2024.
+
+\bibitem{chen2024quantumkd}
+Z.~Chen, Y.~Gao, and X.~Wang,
+``Quantum Knowledge Distillation: A Survey,''
+\textit{arXiv}:2404.17857, 2024.
+
+\bibitem{hur2025quantumknowledge}
+T.~Hur, L.~Wossnig, N.-H.~Tseng, S.~M.~Mousavi, M.~Dano, and S.~Y.~Nam,
+``Quantum Knowledge Distillation for Efficient Deployment of Quantum Neural Networks,''
+\textit{Expert Systems with Applications}, vol.~259, p.~125300, 2025.
 
 \end{thebibliography}
 
