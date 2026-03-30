@@ -11,8 +11,8 @@
 
 \graphicspath{{../outputs/figures/}}
 
-\title{Placement Matters More Than Presence: Lightweight Hybrid Quantum-Classical Networks\\
-for Biomedical Tabular Binary Classification with Knowledge Distillation}
+\title{A Pilot Ablation Study of Quantum-Layer Placement in Hybrid Networks\\
+for Biomedical Tabular Classification}
 
 \author{Xiaoming Liu\\
 Panda Intelligence Software LTD, United Kingdom\\
@@ -24,24 +24,24 @@ Panda Intelligence Software LTD, United Kingdom\\
 \maketitle
 
 \begin{abstract}
-Hybrid quantum-classical architectures provide a practical route for studying quantum components under
-NISQ-era resource constraints, but their value on small biomedical tabular problems remains unclear.
-We study a lightweight teacher-student pipeline that combines PCA-based feature compression, a compact
-classical student, and a 4-qubit parameterized quantum layer. We compare classical and hybrid students
-with and without knowledge distillation (KD), and we ablate quantum layer placement, PCA dimension,
-and KD weight on the Breast Cancer Wisconsin Diagnostic (WDBC) dataset using 5-fold cross-validation,
-then validate the main KD intuition with supplementary full-example runs on Pima Diabetes and
-Heart Statlog.
-Experimental results show that the hybrid student with KD reaches AUC $0.9931 \pm 0.0054$, matching
-the KD classical student in AUC, while the hybrid student without KD achieves the best hybrid F1
-($0.9442 \pm 0.0220$). However, hybrid models require $276$--$330$ seconds per fold (KD to no-KD)
-versus sub-second classical training, so the performance gains are insufficient to justify the
-additional simulation cost on this dataset. The central finding is that quantum layer placement
-dominates over KD or architecture choice: front placement fails severely due to out-of-range angle
-encoding, whereas middle and tail placement remain competitive. A brief cross-dataset comparison
-with Pima Diabetes and Heart Statlog shows that richer teacher uncertainty can coincide with modest
-hybrid KD gains, but the cost gap remains dominant. These results suggest that careful placement and compression design
-matter more than simply adding a quantum layer.
+Hybrid quantum-classical architectures are easy to overclaim on small biomedical benchmarks, where
+strong classical baselines and low statistical power can make minor differences look decisive. We
+revisit a lightweight teacher-student pipeline with PCA compression, a compact classical student, a
+4-qubit parameterized quantum layer, and knowledge distillation (KD) for biomedical tabular
+classification. We rerun the main Breast Cancer Wisconsin Diagnostic (WDBC) comparison with
+10-fold cross-validation, retain the original WDBC ablations, and add companion Pima Diabetes and
+Heart Statlog benchmarks plus pilot cross-dataset placement checks.
+
+On WDBC, the tail-placement Hybrid-KD model matches but does not reliably outperform the classical
+student (AUC $0.9926 \pm 0.0095$ vs.\ $0.9947 \pm 0.0081$), and the hybrid cost remains in the
+hundreds of seconds per fold rather than sub-second. The placement result also needs a narrower
+interpretation than our original draft: front insertion is fragile in this implementation because
+direct PCA-to-qubit mapping induces heavy \texttt{Tanh} saturation and removes the learnable
+pre-quantum projection, whereas middle and tail remain viable. Pima and Heart show only modest,
+statistically uncertain hybrid gains under much higher simulation cost.
+
+We therefore present the study as a pilot ablation of placement and input conditioning, not as
+definitive evidence that lightweight hybrid models outperform compact classical baselines.
 \end{abstract}
 
 \section{Introduction}
@@ -70,13 +70,14 @@ trade-off between AUC and F1/MCC?
 considering both training and inference time?
 \end{enumerate}
 
-Our contributions are as follows. First, we benchmark classical and hybrid students under the same
-5-fold protocol with a classical teacher baseline, reporting both training and inference time. Second,
-we ablate quantum layer placement, PCA dimension, and KD weight $\alpha$ on WDBC. Third, we provide
-a circuit diagram and expressibility discussion for the chosen ansatz. Fourth, we include an analysis
-of teacher soft-output entropy to contextualize the limited KD benefit. Fifth, we add supplementary
-Pima Diabetes and Heart Statlog benchmarks and summarize their cross-dataset pattern to show how the
-KD picture changes when teacher entropy is no longer near-zero.
+Our contributions are as follows. First, we revisit the main classical-versus-hybrid comparison on
+WDBC with a 10-fold robustness check and explicit uncertainty reporting rather than relying only on
+5-fold mean$\pm$std summaries. Second, we retain the WDBC ablations on placement, PCA dimension, and
+KD weight $\alpha$ while extending the study with companion Pima Diabetes and Heart Statlog
+benchmarks. Third, we add pilot cross-dataset placement checks on Heart and Pima to test whether the
+front/middle/tail pattern is specific to WDBC. Fourth, we provide a circuit diagram, discuss the
+limited expressibility of the 4-qubit 1-layer ansatz, and explicitly frame the study as a pilot
+ablation rather than definitive evidence of hybrid superiority.
 
 \section{Related Work}
 \label{sec:rw}
@@ -147,7 +148,10 @@ The hybrid student contains three stages:
 \item a quantum layer with 4 qubits and 1 variational layer,
 \item a classical output head producing a binary logit.
 \end{enumerate}
-We evaluate three insertion positions for the quantum block: front, middle, and tail.
+We evaluate three insertion positions for the quantum block: front, middle, and tail. In the front
+variant, the first four PCA components are squashed by \texttt{Tanh} and fed directly to the quantum
+layer, so this setting has no learnable pre-quantum projection. In the middle and tail variants, a
+classical projection network learns a bounded 4-dimensional representation before angle encoding.
 
 \subsection{Quantum Layer and Circuit Design}
 \label{subsec:circuit}
@@ -196,14 +200,20 @@ where $T$ is the distillation temperature, $\alpha \in (0,1)$ is the KD weight, 
 $\mathcal{L}_{\text{KD}}$ is the KL divergence between teacher and student soft outputs scaled by
 $T^2$. In the main runs we use $T=2$ and $\alpha=0.5$.
 
-\subsection{Evaluation Protocol}
-All reported numbers are mean $\pm$ standard deviation over stratified 5-fold cross-validation.
-We use AUC, F1, accuracy, MCC, per-fold training time, and per-fold inference time as the primary
-evaluation metrics. Unless noted otherwise, all models are trained with Adam at learning rate
-$10^{-3}$ for 80 epochs. The default batch size is 32; for the supplementary Pima and Heart hybrid
-runs we reduce it to 8 to keep statevector simulation practical. Thresholded metrics use a fixed
-decision threshold of 0.5, and paired $t$-tests across the five validation folds are used for
-post-hoc comparisons against the best classical student.
+\subsection{Optimization and Evaluation Protocol}
+Unless noted otherwise, all models are trained with Adam at learning rate $10^{-3}$ for 80 epochs.
+The default batch size is 32. For the hybrid follow-up runs on Pima and Heart we reduce the batch
+size to 8 to keep statevector simulation practical. We do not perform dataset-specific hyperparameter
+search; instead, we keep the same optimizer, temperature, and architecture settings across the
+reported comparisons. Thresholded metrics use a fixed decision threshold of 0.5.
+
+The main WDBC classical-versus-hybrid comparison is re-run with stratified 10-fold cross-validation.
+The WDBC placement, PCA-dimension, and $\alpha$ ablations retain the original 5-fold protocol to stay
+comparable with the earlier pilot runs. The companion Pima and Heart benchmark tables use 5-fold
+cross-validation, while the follow-up placement checks on those two datasets are reported as 3-fold
+pilot experiments because each placement requires a full hybrid retraining loop. We report
+mean$\pm$std together with 95\% confidence intervals and paired $t$-tests plus Cohen's $d_z$ effect
+sizes for key AUC comparisons.
 
 \section{Experiments}
 \label{sec:exp}
@@ -234,63 +244,56 @@ Task & Binary classification \\
 \subsection{Main Results}
 
 \begin{table}[t]
-\caption{Main results on WDBC (5-fold CV, PCA $d'=4$, $\alpha=0.5$, $T=2$).
-Teacher is included as upper-bound reference; the hybrid runs here use the
-pre-ablation middle placement from the main pipeline.
-Inference time is measured on the 5-fold validation split ($\approx$114 samples).}
+\caption{Main results on WDBC (10-fold CV, PCA $d'=4$, $\alpha=0.5$, $T=2$).
+Hybrid students use the tail placement selected for the robustness rerun.}
 \label{tab:main}
-\centering\scriptsize
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}lccccc@{}}
+\centering\small
+\begin{tabular}{lccc}
 \toprule
-Model & AUC & F1 & MCC & Train (s) & Infer (ms) \\
+Model & AUC & F1 & MCC \\
 \midrule
-Teacher (MLP-64-32) & $0.9939 \pm 0.0050$ & $0.9416 \pm 0.0149$ & $0.9089 \pm 0.0244$ & $0.29 \pm 0.02$ & $<1$ \\
+Teacher (MLP-64-32) & $0.9937 \pm 0.0090$ & $0.9435 \pm 0.0310$ & $0.9127 \pm 0.0488$ \\
 \midrule
-Student-Classic       & $0.9943 \pm 0.0059$ & $0.9432 \pm 0.0277$ & $0.9126 \pm 0.0418$ & $0.22 \pm 0.04$ & $<1$ \\
-Student-Classic-KD    & $0.9931 \pm 0.0060$ & $0.9419 \pm 0.0212$ & $0.9094 \pm 0.0350$ & $0.50 \pm 0.00$ & $<1$ \\
-Student-Hybrid-NoKD   & $0.9896 \pm 0.0105$ & $0.9442 \pm 0.0220$ & $0.9129 \pm 0.0343$ & $330.46 \pm 82.43$ & $\sim$70 \\
-Student-Hybrid-KD     & $0.9931 \pm 0.0054$ & $0.9395 \pm 0.0152$ & $0.9057 \pm 0.0249$ & $276.46 \pm 21.33$ & $\sim$70 \\
+Student-Classic       & $0.9947 \pm 0.0081$ & $0.9405 \pm 0.0406$ & $0.9100 \pm 0.0598$ \\
+Student-Classic-KD    & $0.9941 \pm 0.0090$ & $0.9408 \pm 0.0372$ & $0.9086 \pm 0.0571$ \\
+Student-Hybrid-NoKD (tail) & $0.9859 \pm 0.0171$ & $0.9462 \pm 0.0434$ & $0.9161 \pm 0.0682$ \\
+Student-Hybrid-KD (tail)   & $0.9926 \pm 0.0095$ & $0.9437 \pm 0.0381$ & $0.9157 \pm 0.0541$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:main} shows that the classical student is already very strong on WDBC, closely matching
-the teacher in AUC despite being four times smaller. Classical inference is sub-millisecond; hybrid
-inference requires $\sim$70~ms per fold due to statevector simulation, which would further increase
-on real hardware. The hybrid student without KD slightly trails the classical student in AUC but
-matches it in F1 and MCC. Adding KD to the hybrid student raises AUC from $0.9896$ to $0.9931$
-and reduces mean training time by about 16\%, but slightly reduces F1 and MCC.
-KD does not improve the classical student on this benchmark: as shown in Appendix~\ref{app:entropy},
-the teacher's soft outputs are highly confident but not perfectly saturated (training mean entropy
-$0.0968$ bits; validation mean entropy $0.1003$ bits), leaving limited residual distillation
-signal above what hard labels already provide.
+Table~\ref{tab:main} shows that the classical student remains a very strong baseline on WDBC even
+under the 10-fold rerun. The tail-placement hybrid models match the classical student on thresholded
+metrics but do not reliably exceed it on AUC. KD recovers much of the tail model's AUC gap relative
+to the no-KD tail baseline, yet the gain remains modest. The teacher's soft outputs are still highly
+confident on WDBC (10-fold validation entropy $\bar{H}_{\text{val}} = 0.099$ bits), which helps
+explain why KD effects remain limited.
 
-\paragraph{Statistical significance.}
-Unless otherwise stated, paired $t$-tests over the 5 validation folds do not show statistically
-significant improvements over Student-Classic at $\alpha=0.05$. We therefore interpret the small
-metric differences in Tables~\ref{tab:main}, \ref{tab:cross}, \ref{tab:pima_main}, and
-\ref{tab:heart_main} as descriptive effect patterns rather than definitive rankings.
+\begin{table}[t]
+\caption{Key paired AUC comparisons with uncertainty estimates. Positive $\Delta$AUC means the second
+model in the comparison has higher AUC.}
+\label{tab:stats}
+\centering\small
+\begin{tabular}{lrrrr}
+\toprule
+Comparison & $\Delta$AUC & 95\% CI & $p$ & $d_z$ \\
+\midrule
+WDBC: Classic vs.\ Hybrid-KD (tail) & $-0.0021$ & $[-0.0046, 0.0004]$ & 0.092 & $-0.63$ \\
+WDBC: Hybrid-NoKD (tail) vs.\ Hybrid-KD (tail) & $+0.0068$ & $[-0.0006, 0.0141]$ & 0.067 & $0.70$ \\
+Pima: Hybrid-NoKD vs.\ Hybrid-KD & $+0.0059$ & $[-0.0148, 0.0267]$ & 0.472 & $0.40$ \\
+Heart: Hybrid-NoKD vs.\ Hybrid-KD & $+0.0121$ & $[-0.0170, 0.0411]$ & 0.312 & $0.58$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.92\linewidth]{main_comparison.pdf}
-\caption{Main comparison of AUC, F1, and MCC across the four student configurations.}
-\label{fig:main_comparison}
-\end{figure}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.82\linewidth]{performance_cost.pdf}
-\caption{Performance-cost trade-off (training time). Bubble size is proportional to MCC.
-Hybrid models occupy a much higher training-cost region than classical students.}
-\label{fig:perf_cost}
-\end{figure}
+As summarized in Table~\ref{tab:stats}, neither the hybrid-KD tail model nor the classical-KD model
+yields a conventionally significant AUC gain over the classical student on WDBC. We therefore treat
+the WDBC results as descriptive pilot evidence rather than definitive pairwise superiority claims.
 
 \subsection{Ablation: Quantum Layer Position}
 
 \begin{table}[t]
-\caption{Ablation of quantum layer placement for the KD hybrid student ($d'=4$, $\alpha=0.5$, $T=2$).}
+\caption{WDBC placement ablation for the KD hybrid student (5-fold CV, $d'=4$, $\alpha=0.5$, $T=2$).}
 \label{tab:ablation_pos}
 \centering\small
 \begin{tabular}{lccccc}
@@ -304,16 +307,23 @@ Tail   & $0.9903 \pm 0.0073$ & $0.9504 \pm 0.0187$ & $0.9240 \pm 0.0277$ & $347.
 \end{tabular}
 \end{table}
 
-The placement study in Table~\ref{tab:ablation_pos} reveals the most critical design choice in this
-paper. Front placement collapses predictive quality: the raw PCA features are not bounded to
-$[-\pi, \pi]$ before angle encoding, so the \texttt{AngleEmbedding} $R_Y$ rotations wrap around
-and lose discriminative structure, effectively randomizing the quantum state and causing the model
-to collapse to a near-constant predictor. Middle and tail placement both avoid this failure because
-a preceding classical projection with \texttt{Tanh} activation bounds inputs before encoding.
-Tail placement yields the best AUC and MCC, while middle placement gives the best F1. Because the
-main hybrid comparison in Table~\ref{tab:main} uses middle placement, this ablation should be read
-as a refinement of that baseline: tail improves the operating point slightly without changing the
-overall conclusion that hybrid gains remain small relative to simulation cost.
+The WDBC placement study in Table~\ref{tab:ablation_pos} still reveals a sharp front-versus-bounded
+gap, but the mechanism needs a narrower interpretation than in the original draft. In the front
+variant, the model takes only the first four PCA components, applies \texttt{Tanh}, and feeds them
+directly into angle embedding without a learnable pre-quantum projection. On the five WDBC training
+folds, about 36.5\% of these direct front inputs satisfy $|\tanh(x)| > 0.95$ and about 21.3\%
+exceed 0.99, indicating strong saturation before the quantum circuit. Under this implementation,
+front placement is therefore an input-conditioning failure mode rather than evidence that front
+insertion is fundamentally impossible.
+
+Middle and tail placement define the viable operating region. On WDBC, tail gives the best AUC/MCC
+while middle gives the best F1. On the new Heart placement pilot, front collapses again
+($0.5313 \pm 0.0468$ AUC), whereas middle and tail remain competitive
+($0.8923 \pm 0.0123$ and $0.8757 \pm 0.0229$ AUC, respectively). The Pima pilot shows the same
+front-versus-bounded split: front remains weak ($0.6019 \pm 0.0113$ AUC), whereas middle and tail
+recover to $0.7838 \pm 0.0311$ and $0.7875 \pm 0.0298$ AUC. The placement conclusion is thus more
+specific and more defensible: front insertion is fragile in this implementation, while middle and
+tail are the two competitive options and their ordering is dataset-dependent.
 
 \begin{figure}[t]
 \centering
@@ -382,7 +392,7 @@ reported in Appendices~\ref{app:pima} and~\ref{app:heart}.}
 \toprule
 Dataset & Teacher AUC & $\bar{H}_{\text{val}}$ (bits) & $\Delta$AUC & $\Delta$MCC \\
 \midrule
-WDBC ($N{=}569$)  & 0.994 & 0.100 & $+0.004$ & $-0.007$ \\
+WDBC ($N{=}569$)  & 0.994 & 0.099 & $+0.007$ & $-0.000$ \\
 Heart ($N{=}270$) & 0.889 & 0.470 & $+0.012$ & $+0.022$ \\
 Pima ($N{=}768$)  & 0.782 & 0.707 & $+0.006$ & $+0.017$ \\
 \bottomrule
@@ -391,9 +401,10 @@ Pima ($N{=}768$)  & 0.782 & 0.707 & $+0.006$ & $+0.017$ \\
 
 Table~\ref{tab:cross} brings the WDBC, Heart, and Pima results into one main-text view, while the
 appendices retain the full dataset-specific tables and fold-level details. The pattern is
-qualitative rather than monotone: WDBC has a near-saturated teacher and little hybrid KD benefit,
-Heart has moderate teacher uncertainty and the largest hybrid gain, and Pima has richer teacher
-uncertainty but a weaker teacher and therefore a smaller gain than Heart. Across all three
+qualitative rather than monotone: WDBC has a near-saturated teacher and only a small AUC recovery
+with essentially flat MCC, Heart has moderate teacher uncertainty and the clearest hybrid gain, and
+Pima has richer teacher uncertainty but a weaker teacher and therefore a smaller gain than Heart.
+Across all three
 datasets, these hybrid gains remain modest relative to the simulation-cost gap and do not overturn
 the strong classical baseline.
 
@@ -401,28 +412,32 @@ the strong classical baseline.
 \label{sec:disc}
 
 \subsection{Does KD help hybrid students?}
-KD helps the hybrid student selectively rather than uniformly. On WDBC, KD mainly improves AUC
-while leaving F1/MCC flat or slightly worse, consistent with the low-entropy teacher outputs in
-Appendix~\ref{app:entropy}. Across datasets, Table~\ref{tab:cross} shows that KD benefit depends on
-both teacher entropy and teacher reliability: Heart yields the clearest hybrid gain under moderate
-uncertainty, whereas WDBC is near-saturated and Pima combines higher entropy with a weaker teacher.
-The resulting pattern is therefore non-monotonic in both entropy and teacher strength.
+KD helps the hybrid student selectively rather than uniformly. As summarized in
+Tables~\ref{tab:stats} and~\ref{tab:cross}, WDBC shows at most a suggestive AUC recovery under KD,
+whereas Heart and Pima show modest but still statistically uncertain gains. The pattern is
+non-monotonic in teacher entropy and too underpowered to justify a simple ``KD always helps hybrid
+models'' claim.
 
 \subsection{Which quantum layer position is best?}
-The placement ablation makes it clear that the quantum layer must not be applied directly to the
-raw PCA vector. Without a classical projection to bound inputs into $[-\pi, \pi]$, angle encoding
-degrades due to rotation wrap-around, and the quantum circuit loses its ability to separate classes.
-Both middle and tail placement avoid this failure, with tail placement offering a slightly better
-performance-cost balance. This is a more actionable design lesson than the binary question of
-whether a quantum layer is present at all.
+The placement ablation supports a narrower and more implementation-aware conclusion than the
+original title suggested. The front variant is fragile because it combines direct PCA-to-qubit
+mapping, heavy \texttt{Tanh} saturation, and the removal of a learnable pre-quantum projection.
+Middle and tail placement consistently avoid this failure mode, but no universal winner emerges
+between them: tail is slightly stronger on WDBC and in Pima AUC, whereas middle is stronger in the
+Heart pilot and in Pima's thresholded metrics. The actionable lesson is therefore not ``placement
+always dominates,'' but rather ``front placement requires much better input conditioning than this
+lightweight pipeline currently provides.''
+In short, placement is not a silver bullet; conditioning and projection design are the real levers.
 
 \subsection{Is the hybrid student worth the cost?}
-For WDBC, the answer is generally no. The classical student reaches AUC above $0.994$ with
-sub-second training and sub-millisecond inference per fold. Hybrid inference at $\sim$70~ms is
-acceptable for batch applications but is two to three orders of magnitude slower in simulation;
-on actual quantum hardware, latency would be further constrained by qubit coherence times.
-The hybrid layer therefore behaves more like a research probe than a cost-effective production
-choice on this dataset.
+For all three datasets considered here, the answer is still generally no. In the serial 5-fold runs,
+classical training remains sub-second per fold, whereas hybrid training requires hundreds of seconds
+per fold: roughly 276--330~s on WDBC, 214--221~s on Heart, and 607--617~s on Pima. Inference for
+the hybrid models is likewise two to three orders of magnitude slower than the classical students in
+statevector simulation. Even when the hybrid models recover some AUC or MCC, those gains are too
+small and too statistically fragile to offset the simulation-cost gap. The hybrid layer therefore
+behaves more like a research probe than a cost-effective production choice on these small tabular
+benchmarks.
 
 \subsection{Parameter Efficiency}
 \label{sec:param_efficiency}
@@ -430,11 +445,11 @@ choice on this dataset.
 Table~\ref{tab:params} compares trainable parameter counts across all models for PCA $d'=4$.
 The middle-placement hybrid student uses only 201 parameters (4 quantum, 197 classical), which is
 fewer than the classical student's 225, yet achieves comparable AUC and F1 on WDBC.
-The front-placement variant is the most compact (53 parameters) but fails for the encoding reasons
-discussed in Section~\ref{sec:disc}. The tail-placement hybrid (305 parameters) trades a modest
-parameter increase for the best AUC/MCC in the placement ablation. These counts show that the
-quantum layer contributes only 4 additional trainable parameters, so any performance difference
-is attributable to the quantum circuit's expressivity rather than model capacity.
+The front-placement variant is the most compact (53 parameters), but it also removes the learnable
+pre-quantum projection used by the middle and tail variants. The tail-placement hybrid (305
+parameters) trades a modest parameter increase for the strongest WDBC AUC/MCC operating point. The
+parameter table is therefore useful for transparency, but it also shows why the placement ablation
+should not be interpreted as a pure ``same-capacity, different-location'' comparison.
 
 \begin{table}[t]
 \caption{Trainable parameter counts by model ($d'=4$, $n_{\text{qubits}}{=}4$, $L{=}1$).
@@ -454,68 +469,40 @@ Student-Hybrid (tail)     &   301 &   4 &   305 \\
 \end{tabular}
 \end{table}
 
-\subsection{Teacher Strength and KD Benefit}
-To test whether a stronger teacher yields greater KD benefit for the hybrid student,
-we train two additional teacher architectures on WDBC and distill into the same
-middle-placement hybrid student. Table~\ref{tab:ablation_teacher} reports the results.
-
-\begin{table}[t]
-\caption{Ablation of teacher architecture strength on WDBC (hybrid-KD student,
-$d'=4$, $\alpha=0.5$, $T=2$). The baseline teacher uses $[64,32]$.}
-\label{tab:ablation_teacher}
-\centering\small
-\begin{tabular}{lrrrrr}
-\toprule
-Teacher & Params & T-AUC & S-AUC & S-F1 & S-MCC \\
-\midrule
-Weak [32,16]       &   705 & $0.9941 \pm 0.0056$ & $0.9934 \pm 0.0058$ & $0.9420 \pm 0.0194$ & $0.9094 \pm 0.0310$ \\
-Baseline [64,32]   & 2\,433 & 0.9939 & 0.9931 & 0.9395 & 0.9057 \\
-Strong [128,64]    & 8\,961 & $0.9933 \pm 0.0055$ & $0.9894 \pm 0.0092$ & $0.9477 \pm 0.0308$ & $0.9196 \pm 0.0465$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The weak teacher (705 parameters) already reaches T-AUC of 0.9941, close to the baseline teacher's
-0.9939, and the resulting hybrid-KD student is nearly unchanged (S-AUC 0.9934 vs.\ 0.9931). The
-strong teacher (8\,961 parameters) does not improve student AUC, although it yields the best
-student F1/MCC. On a near-saturated task like WDBC, teacher capacity therefore shows diminishing
-returns: once the teacher is already accurate enough, a stronger teacher does not reliably translate
-into better distillation for the small hybrid student.
-
 \subsection{Limitations}
-This study uses noiseless simulation on PennyLane's \texttt{default.qubit}~\cite{pennylane} and
-focuses its main ablation analysis on WDBC. Although Appendices~\ref{app:pima} and \ref{app:heart}
-now add two real additional benchmarks (Pima Diabetes and Heart Statlog), broader generalization is
-still limited: we do not yet have matching placement or $\alpha$ ablations across multiple
-additional datasets, nor do we evaluate shot noise, hardware noise, or calibration drift. The
-$\alpha$ sweep is reported only for tail placement on WDBC, so the interaction between KD weight,
-placement, and dataset difficulty remains underexplored. Future work should extend the same
-protocol to broader biomedical tabular datasets and to noise-aware simulations or hardware
-execution.
+This work should be read as a pilot ablation study, not as definitive evidence for hybrid quantum
+advantage on biomedical tabular tasks. Even after the 10-fold WDBC rerun, several paired confidence
+intervals still overlap zero, and the companion Pima/Heart placement checks are only 3-fold pilot
+experiments. The datasets themselves remain small (WDBC 569, Heart 270, Pima 768), so broader
+generalization is still limited. On the modeling side, we evaluate only one 4-qubit, 1-layer
+\texttt{BasicEntanglerLayers} ansatz; we do not report a deeper-circuit comparison, learning-curve
+analysis, or an exhaustive hyperparameter search. On the systems side, all experiments use
+noiseless simulation on PennyLane's \texttt{default.qubit}~\cite{pennylane}; we do not evaluate
+finite-shot sampling, hardware noise, calibration drift, queueing latency, or real NISQ execution.
+Future work should extend the same protocol to broader datasets, deeper circuits, and noise-aware
+simulation or hardware settings.
 
 \section{Conclusion}
 \label{sec:conc}
 
-We presented a lightweight hybrid quantum-classical framework for biomedical tabular binary
-classification under a controlled teacher-student pipeline. The central finding is that quantum
-layer placement dominates over both KD and architecture choice: front placement fails consistently
-due to unbounded angle encoding, while middle and tail placement remain competitive. KD improves
-AUC and reduces training time for the hybrid student, but its benefit is modest when the
-teacher's soft outputs carry low entropy on near-saturated tasks (WDBC). Cross-dataset comparison
-reveals a non-monotonic relationship: moderate teacher uncertainty (Heart Statlog) coincides with
-the largest KD gains for the hybrid student, while both near-saturated (WDBC) and highly uncertain
-(Pima) teachers yield diminishing returns. These findings support a
-pragmatic view of HQC modeling: careful architectural placement is necessary, and strong classical
-baselines remain hard to outperform on small biomedical tabular benchmarks. The supplementary Pima
-and Heart examples refine rather than overturn this conclusion: when teacher entropy is no longer
-near-zero, KD can modestly help hybrid AUC/MCC, but the effect depends on both teacher entropy and
-teacher reliability, and the simulation cost stays far above that of the classical alternatives.
-On real hardware, noise, calibration overhead, and queueing latency would likely widen this
-practical cost gap further.
+We presented a pilot ablation study of a lightweight hybrid quantum-classical pipeline for
+biomedical tabular classification. The updated WDBC 10-fold results do not support a definitive
+hybrid advantage over a compact classical baseline: the best hybrid variant remains statistically
+indistinguishable from the classical student on the primary AUC comparison. KD can recover some AUC
+for the hybrid model, especially away from the near-saturated WDBC regime, but the effect remains
+small and statistically uncertain across WDBC, Pima, and Heart.
 
-Future work should expand to additional datasets, evaluate noise-aware settings, and test whether
-the placement effects and KD dynamics observed here persist under broader feature regimes and
-alternative ansatz families with higher expressibility.
+The placement result also requires a narrower interpretation than the original title implied. In
+this implementation, front placement is fragile because it relies on a direct, heavily saturated
+PCA-to-qubit mapping with no learnable pre-quantum projection. Middle and tail placement define the
+viable region, but their ordering is dataset-dependent rather than universal. The broader practical
+conclusion is therefore conservative: strong classical baselines remain hard to beat on small
+biomedical tabular benchmarks, and the hybrid simulation cost stays far above the classical
+alternatives.
+
+Future work should expand to additional datasets, evaluate noise-aware and shot-based settings, and
+test whether the same placement and KD dynamics persist under deeper or more expressive ansatz
+families.
 
 \section*{Acknowledgment}
 We thank Panda Intelligence Software LTD for supporting this research.
@@ -535,26 +522,26 @@ where $p = \sigma(z_{\text{teacher}})$ is the teacher's predicted probability. H
 predictions ($p \approx 0$ or $p \approx 1$) yield $H \approx 0$, leaving no additional
 information beyond the hard label.
 
-Across all 5 folds and training samples, the teacher's mean soft-output entropy is
-$\bar{H}_{\text{train}} = 0.0968$ bits (std.\ $0.2197$), while the validation-fold mean is
-$\bar{H}_{\text{val}} = 0.1003$ bits (std.\ $0.2271$). The fraction of high-confidence
-predictions satisfying $|p - 0.5| > 0.45$ is $89.7\%$ on training samples and $89.6\%$ on
+Across all 10 folds and training samples, the teacher's mean soft-output entropy is
+$\bar{H}_{\text{train}} = 0.0990$ bits (std.\ $0.2172$), while the validation-fold mean is
+$\bar{H}_{\text{val}} = 0.0992$ bits (std.\ $0.2169$). The fraction of high-confidence
+predictions satisfying $|p - 0.5| > 0.45$ is $89.7\%$ on training samples and $89.3\%$ on
 validation samples. This confirms that the teacher is highly confident on most samples,
 and its soft targets provide only limited additional signal relative to one-hot labels.
 This helps explain why KD offers limited benefit to the classical student and why
 larger $\alpha$ (more soft-target weight) can degrade hybrid student F1/MCC.
 
-\section{Additional Dataset Example: Pima Diabetes}
+\section{Pima Diabetes Benchmark Details}
 \label{app:pima}
 
 Section~\ref{subsec:cross} gives the main-text synthesis; this appendix keeps the full Pima table
 and supporting details for reproducibility. To test whether the WDBC observations transfer to a less
 saturated biomedical task, we ran the
 same 5-fold protocol on the Pima Indians Diabetes dataset~\cite{pima} (768 samples, 8 raw features, positive
-rate 34.9\%). For this supplementary example we used PCA $d'=4$, $T=2$, and the tail placement
-selected from the WDBC ablation for these supplementary hybrid runs.
+rate 34.9\%). We used PCA $d'=4$, $T=2$, and the tail placement
+selected from the WDBC placement study for the companion hybrid runs.
 
-\begin{table}[h]
+\begin{table}[t]
 \caption{Pima Diabetes main results (5-fold CV, PCA $d'=4$). $p$-values from paired $t$-test vs.\ Student-Classic (best classical baseline). None are significant at $\alpha{=}0.05$.}
 \label{tab:pima_main}
 \centering\small
@@ -583,16 +570,16 @@ are modest relative to simulation cost. We therefore view Pima as supportive evi
 matter more when teacher entropy is higher, but not yet enough to overturn the overall cost-benefit
 assessment of lightweight classical models.
 
-\section{Additional Dataset Example: Heart Statlog}
+\section{Heart Statlog Benchmark Details}
 \label{app:heart}
 
 Section~\ref{subsec:cross} gives the main-text synthesis; this appendix keeps the full Heart table
-and supporting details for reproducibility. To add a second supplementary biomedical benchmark, we
+and supporting details for reproducibility. To add a second companion biomedical benchmark, we
 ran the same 5-fold protocol on the Heart Statlog dataset~\cite{heart} (270 samples, 13 raw
-features, positive rate 44.4\%). As in the Pima example, we used PCA $d'=4$, $T=2$, and the tail
-placement selected from the WDBC ablation for these supplementary hybrid runs.
+features, positive rate 44.4\%). As in the Pima benchmark, we used PCA $d'=4$, $T=2$, and the tail
+placement selected from the WDBC placement study for the companion hybrid runs.
 
-\begin{table}[h]
+\begin{table}[t]
 \caption{Heart Statlog main results (5-fold CV, PCA $d'=4$). $p$-values from paired $t$-test vs.\ Student-Classic. None are significant at $\alpha{=}0.05$.}
 \label{tab:heart_main}
 \centering\small
@@ -626,11 +613,12 @@ still favors lightweight classical baselines.
 \bibitem{wdbc}
 W.~Wolberg, O.~Mangasarian, N.~Street, and W.~Street,
 ``Breast Cancer Wisconsin (Diagnostic),'' UCI Machine Learning Repository, 1995.
+doi:10.24432/C5DW2B.
 
 \bibitem{kd}
 G.~Hinton, O.~Vinyals, and J.~Dean,
 ``Distilling the Knowledge in a Neural Network,''
-\textit{arXiv}:1503.02531, 2015.
+\textit{preprint}, arXiv:1503.02531, 2015.
 
 \bibitem{cerezo2021vqa}
 M.~Cerezo et al.,
@@ -645,7 +633,7 @@ Springer, 2021.
 \bibitem{sagingalieva2023hyperparameter}
 A.~Sagingalieva et al.,
 ``Hyperparameter Optimization of Hybrid Quantum Neural Networks for Car Classification,''
-\textit{arXiv}:2205.04878v2, 2023.
+\textit{preprint}, arXiv:2205.04878v2, 2023.
 
 \bibitem{mcclean2018barren}
 J.~R.~McClean, S.~Boixo, V.~N.~Smelyanskiy, R.~Babbush, and H.~Neven,
@@ -655,12 +643,12 @@ J.~R.~McClean, S.~Boixo, V.~N.~Smelyanskiy, R.~Babbush, and H.~Neven,
 \bibitem{nguyen2022classicalquantum}
 Q.~H.~Nguyen et al.,
 ``Classical-to-Quantum Transfer Learning for Spoken Command Recognition Based on Quantum Neural Networks,''
-\textit{arXiv}:2110.11919, 2022.
+\textit{preprint}, arXiv:2110.11919, 2022.
 
 \bibitem{pennylane}
 V.~Bergholm et al.,
 ``PennyLane: Automatic differentiation of hybrid quantum-classical computations,''
-\textit{arXiv}:1811.04968, 2018.
+\textit{preprint}, arXiv:1811.04968, 2018.
 
 \bibitem{sim2019expressibility}
 S.~Sim, P.~D.~Johnson, and A.~Aspuru-Guzik,
@@ -689,7 +677,7 @@ S.~Jerbi, L.~J.~Fiderer, V.~Mnih, and H.~Poulsen Nautrup,
 \bibitem{lloyd2024quantumforc}
 S.~Lloyd, B.~T.~Kiani, D.~M.~Arvidsson-Shukur, S.~Girvin, and A.~O.~Sushkov,
 ``Quantum Foraging in High-Dimensional Spaces,''
-\textit{arXiv}:2405.04050, 2024.
+\textit{preprint}, arXiv:2405.04050, 2024.
 
 \bibitem{herrmann2023quantum}
 J.~Herrmann, S.~M.~Llima, A.~Rembold, et al.,
@@ -700,12 +688,12 @@ to Accelerate Diagnosis of Medical Images,''
 \bibitem{canatar2024quantum}
 A.~Canatar, B.~Ruben, J.~B.~Park, M.~M.~Abdallah, I.~Arun, and S.~M.~Vakili,
 ``A Statistical Mechanics Perspective on the Detectability of Quantum Kernels,''
-\textit{arXiv}:2402.04588, 2024.
+\textit{preprint}, arXiv:2402.04588, 2024.
 
 \bibitem{chen2024quantumkd}
 Z.~Chen, Y.~Gao, and X.~Wang,
 ``Quantum Knowledge Distillation: A Survey,''
-\textit{arXiv}:2404.17857, 2024.
+\textit{preprint}, arXiv:2404.17857, 2024.
 
 \bibitem{hur2025quantumknowledge}
 T.~Hur, L.~Wossnig, N.-H.~Tseng, S.~M.~Mousavi, M.~Dano, and S.~Y.~Nam,
