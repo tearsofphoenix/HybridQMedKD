@@ -465,14 +465,20 @@ $d'=4$, $\alpha=0.5$, $T=2$). The baseline teacher uses $[64,32]$.}
 \toprule
 Teacher & Params & T-AUC & S-AUC & S-F1 & S-MCC \\
 \midrule
-Weak [32,16]       & --- & --- & --- & --- & --- \\
+Weak [32,16]       &   705 & $0.9941 \pm 0.0056$ & $0.9934 \pm 0.0058$ & $0.9420 \pm 0.0194$ & $0.9094 \pm 0.0310$ \\
 Baseline [64,32]   & 2\,433 & 0.9939 & 0.9931 & 0.9395 & 0.9057 \\
-Strong [128,64]    & --- & --- & --- & --- & --- \\
+Strong [128,64]    & 8\,961 & $0.9933 \pm 0.0055$ & $0.9894 \pm 0.0092$ & $0.9477 \pm 0.0308$ & $0.9196 \pm 0.0465$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-% TODO: Replace %TODO placeholders after running: python scripts/run_ablation_teacher.py
+The weak teacher (705 parameters) already reaches T-AUC of 0.9941, close to the baseline teacher's
+0.9939, and the distillation gap between weak and baseline students is negligible
+(S-AUC 0.9934 vs.\ 0.9931). The strong teacher (8\,961 parameters) does not improve student
+AUC---in fact S-AUC drops slightly to 0.9894---but yields the best S-F1 (0.9477) and S-MCC (0.9196).
+This confirms that on a near-saturated task like WDBC, teacher strength has diminishing returns:
+once the teacher is accurate enough, additional capacity does not translate into better distillation
+signal, and a larger teacher may even introduce optimization noise for the small hybrid student.
 
 \subsection{Limitations}
 This study uses noiseless simulation on PennyLane's \texttt{default.qubit}~\cite{pennylane} and
