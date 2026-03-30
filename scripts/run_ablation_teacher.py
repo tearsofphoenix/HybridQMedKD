@@ -100,7 +100,6 @@ def fit_hybrid_kd(X_tr, y_tr, teacher_logits, input_dim, n_qubits=4):
     """Train hybrid-KD student for one fold."""
     model = StudentHybrid(input_dim=input_dim, n_qubits=n_qubits, n_q_layers=1, quantum_position="middle")
     opt = torch.optim.Adam(model.parameters(), lr=LR)
-    bce = torch.nn.BCEWithLogitsLoss()
 
     X_tr_t = torch.tensor(X_tr, dtype=torch.float32)
     y_tr_t = torch.tensor(y_tr, dtype=torch.float32)
@@ -109,6 +108,8 @@ def fit_hybrid_kd(X_tr, y_tr, teacher_logits, input_dim, n_qubits=4):
     t0 = time.time()
     for epoch in range(1, EPOCHS + 1):
         model.train()
+        epoch_loss = 0.0
+        n_batches = 0
         perm = torch.randperm(len(X_tr_t))
         for i in range(0, len(X_tr_t), BATCH_SIZE):
             idx = perm[i:i + BATCH_SIZE]
@@ -117,6 +118,12 @@ def fit_hybrid_kd(X_tr, y_tr, teacher_logits, input_dim, n_qubits=4):
             loss = kd_loss(logits, teacher_logits[idx], y_tr_t[idx], alpha=ALPHA, T=T)
             loss.backward()
             opt.step()
+            epoch_loss += loss.item()
+            n_batches += 1
+        if epoch == 1 or epoch % 5 == 0 or epoch == EPOCHS:
+            elapsed = time.time() - t0
+            avg_loss = epoch_loss / max(n_batches, 1)
+            print(f"    Hybrid-KD epoch {epoch:3d}/{EPOCHS}  loss={avg_loss:.4f}  elapsed={elapsed:.1f}s")
     train_time = time.time() - t0
     return model, train_time
 
@@ -180,6 +187,10 @@ def run_ablation():
             "teacher": aggregate_fold_metrics(teacher_metrics),
             "hybrid_kd": aggregate_fold_metrics(student_metrics),
         }
+        out_path = os.path.join(get_tables_dir(), "ablation_teacher.json")
+        with open(out_path, "w") as f:
+            json.dump(results, f, indent=2)
+        print(f"Checkpoint saved: {out_path}")
 
         for role, metrics_list in [("teacher", teacher_metrics), ("hybrid_kd", student_metrics)]:
             vals = {k: [m[k] for m in metrics_list] for k in ["auc", "f1", "mcc"]}
@@ -190,8 +201,6 @@ def run_ablation():
 
     # Save
     out_path = os.path.join(get_tables_dir(), "ablation_teacher.json")
-    with open(out_path, "w") as f:
-        json.dump(results, f, indent=2)
     print(f"\nSaved: {out_path}")
 
     # Print summary table

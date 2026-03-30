@@ -1,8 +1,8 @@
 model_name: student_hybrid
 classical_proj_dims: [16, 8]
 n_qubits: 4
-n_q_layers: 2
+n_q_layers: 1
 quantum_position: middle  # options: front, middle, tail
 lr: 0.001
-epochs: 60
-batch_size: 16
+epochs: 80
+batch_size: 32
