@@ -48,18 +48,22 @@ definitive evidence that lightweight hybrid models outperform compact classical 
 \label{sec:intro}
 
 Quantum machine learning (QML) continues to attract interest as a possible route toward practical
-learning systems on near-term quantum hardware. In practice, however, large quantum circuits remain
-hard to optimize and expensive to simulate, especially in data regimes where strong classical baselines
-are already available~\cite{cerezo2021vqa}. Hybrid quantum-classical (HQC) models therefore remain the
-most realistic design pattern: a classical front-end performs feature compression, while a small
-parameterized quantum circuit (PQC) acts as a learnable nonlinear block~\cite{schuld2021machine}.
+learning systems on near-term quantum hardware, following broader discussions of QML and the noisy
+intermediate-scale quantum (NISQ) regime~\cite{biamonte2017qml,preskill2018nisq,cerezo2021vqa,schuld2021machine}.
+In practice, however, large quantum circuits remain hard to optimize and expensive to simulate,
+especially in data regimes where strong classical baselines are already available. Hybrid
+quantum-classical (HQC) models therefore remain the most realistic design pattern: a classical
+front-end performs feature compression, while a small parameterized quantum circuit (PQC) acts as a
+learnable nonlinear block~\cite{cerezo2021vqa,benedetti2019pqc}.
 
 Biomedical tabular classification is a useful setting for testing this idea. Such datasets are often
 small, feature-limited after preprocessing, and measured under strict performance-cost constraints.
 A compact HQC model may therefore provide insight into how and where a quantum block can be inserted,
 even if no quantum advantage is expected. At the same time, knowledge distillation (KD) offers a
 natural mechanism for transferring supervision from a larger classical teacher to a smaller classical
-or hybrid student~\cite{kd}.
+or hybrid student~\cite{kd}. Recent biomedical and digital-health reviews also note that many QML
+claims in healthcare still come from simulator-based studies on small datasets with uneven classical
+baselines, making conservative benchmark design essential~\cite{maheshwari2022biomedical,gupta2025digitalhealth}.
 
 This paper asks three concrete questions on the WDBC benchmark:
 \begin{enumerate}
@@ -77,7 +81,9 @@ KD weight $\alpha$ while extending the study with companion Pima Diabetes and He
 benchmarks. Third, we add pilot cross-dataset placement checks on Heart and Pima to test whether the
 front/middle/tail pattern is specific to WDBC. Fourth, we provide a circuit diagram, discuss the
 limited expressibility of the 4-qubit 1-layer ansatz, and explicitly frame the study as a pilot
-ablation rather than definitive evidence of hybrid superiority.
+ablation rather than definitive evidence of hybrid superiority. Fifth, we connect the empirical
+results to recent literature on data encoding, trainability, generalization, and healthcare-oriented
+QML benchmarking so that the scope of our claims is explicit.
 
 \section{Related Work}
 \label{sec:rw}
@@ -85,44 +91,50 @@ ablation rather than definitive evidence of hybrid superiority.
 \subsection{Hybrid Quantum-Classical Classification}
 Hybrid quantum-classical models couple classical feature extractors with shallow PQCs to keep the
 quantum component small enough for near-term simulation or
-deployment~\cite{cerezo2021vqa,schuld2021machine}. A central design question is where to insert the
-quantum block: before, within, or after the classical network. Prior work has explored this idea for
-image, text, and tabular settings, but biomedical tabular benchmarks remain comparatively underused
-despite their natural low-dimensional structure after feature selection or
-PCA~\cite{sagingalieva2023hyperparameter}. Shallow ansatze such as \texttt{BasicEntanglerLayers}
-trade expressibility for trainability, reducing the risk of barren plateaus that plague deeper
-circuits~\cite{mcclean2018barren}.
-Recent work on variational quantum classifiers has demonstrated competitive performance on small
-tabular benchmarks when paired with careful data encoding and feature
-compression~\cite{jerbi2023quantum,lloyd2024quantumforc},
-and quantum kernel methods have shown promise on biomedical classification tasks where
-classical kernels struggle with structured feature
-interactions~\cite{herrmann2023quantum,canatar2024quantum}.
+deployment~\cite{preskill2018nisq,benedetti2019pqc,cerezo2021vqa}. A central design question is not
+only where to insert the quantum block, but also how to encode classical features into a limited
+quantum register. Circuit-centric classifiers, feature-Hilbert-space formulations, and
+quantum-enhanced kernel methods all emphasize that the inductive bias of the model is strongly shaped
+by the encoding map, not only by the variational circuit that follows
+it~\cite{schuld2020circuit,schuld2019feature,havlicek2019feature}.
+
+Recent work has therefore focused on repeated embeddings and more robust encodings as practical ways
+to enlarge function classes without immediately increasing qubit
+count~\cite{perezsalinas2020reuploading,schuld2021encoding,larose2020robust}. At the same time,
+empirical studies suggest that raw expressibility is not a sufficient design objective: once
+trainability and hardware limits are considered, classification accuracy correlates only imperfectly
+with expressibility or entangling capability~\cite{hubregtsen2021evaluation,abbas2021power,peters2021highdim}.
+Shallow ansatze such as \texttt{BasicEntanglerLayers} therefore remain attractive precisely because
+they trade representational headroom for better optimization behavior, especially when deeper
+circuits risk barren plateaus~\cite{mcclean2018barren,cerezo2021cost,holmes2022expressibility}.
 
 \subsection{Knowledge Distillation for Quantum Models}
 KD transfers information from a stronger teacher to a smaller student through softened targets and has
 become a standard compression tool in classical deep learning~\cite{kd}. The distillation loss
 interpolates between hard-label cross-entropy and a KL-divergence soft-target term weighted by
-temperature $T$ and mixing coefficient $\alpha$. Recent QML work has extended KD to
-classical-to-quantum and quantum-to-quantum transfer settings, arguing that a stable classical
-teacher can regularize difficult hybrid optimization~\cite{nguyen2022classicalquantum}.
-Subsequent studies have shown that KD can improve trainability of variational quantum circuits
-by smoothing the loss landscape~\cite{chen2024quantumkd} and that quantum-aware distillation
-strategies outperform naive transfer on noisy intermediate-scale
-devices~\cite{hur2025quantumknowledge}.
-A largely open question is how the information content of teacher soft outputs---measured by their
-predictive entropy---affects the magnitude of KD benefit, particularly for small biomedical tasks
-where the teacher may already be near-saturated.
+temperature $T$ and mixing coefficient $\alpha$. In QML, however, the KD literature is still sparse
+compared with classical model compression. Recent surveys and deployment-oriented studies suggest that
+teacher-generated soft targets can regularize difficult hybrid optimization and improve robustness of
+small quantum or hybrid students, especially when the quantum component is resource
+constrained~\cite{chen2024quantumkd,hur2025quantumknowledge}. A largely open question is how the
+information content of teacher soft outputs---measured by their predictive entropy---affects the
+magnitude of KD benefit, particularly for small biomedical tasks where the teacher may already be
+near-saturated.
 
 \subsection{Biomedical Tabular Classification}
 Biomedical tabular tasks typically involve limited sample size, moderate class imbalance, and a need
 for interpretable, compact models. Classical baselines such as gradient-boosted trees and small MLPs
-are already strong on these benchmarks, raising the bar for any quantum enhancement. PCA-based
-compression is especially relevant when quantum inputs must be bounded by the number of available
-qubits~\cite{sagingalieva2023hyperparameter}. This makes datasets like WDBC, Pima Indians Diabetes,
-and Heart Statlog suitable benchmarks for controlled HQC experiments: they span a range of sample
-sizes, feature dimensions, and task difficulties, enabling cross-dataset analysis of how teacher
-confidence and KD interact with quantum-layer placement.
+are already strong on these benchmarks, raising the bar for any quantum enhancement. Recent reviews
+of biomedical and healthcare QML also report that many positive findings remain tied to small
+datasets, simulator-based evaluations, and heterogeneous baseline choices, so benchmark discipline is
+part of the scientific contribution rather than an implementation detail~\cite{maheshwari2022biomedical,gupta2025digitalhealth}.
+PCA-based compression is especially relevant when quantum inputs must be bounded by the number of
+available qubits~\cite{sagingalieva2023hyperparameter}. This makes datasets like WDBC, Pima Indians
+Diabetes, and Heart Statlog suitable benchmarks for controlled HQC experiments: they span a range of
+sample sizes, feature dimensions, and task difficulties, enabling cross-dataset analysis of how
+teacher confidence and KD interact with quantum-layer placement. More broadly, recent
+learning-theoretic work suggests that small-data QML claims should be interpreted through
+generalization behavior and uncertainty, not accuracy alone~\cite{caro2022generalization}.
 
 \section{Method}
 \label{sec:method}
@@ -137,6 +149,13 @@ Within each training fold, we apply standard scaling followed by PCA to a target
 $d' \in \{4,6,8\}$. All preprocessing is fit on the training split only and then applied to the
 validation split to avoid data leakage. The default experiments use $d'=4$. Although the codebase
 supports SMOTE-based resampling, all reported results here use no class rebalancing.
+
+The choice of PCA is not only computational convenience. For circuit-centric and angle-encoding-based
+quantum classifiers, the feature interface to the quantum register is itself part of the model class,
+and richer decision functions usually require either a larger register or repeated data
+re-uploading~\cite{schuld2020circuit,perezsalinas2020reuploading,schuld2021encoding}. We therefore
+treat PCA as a pragmatic classical-to-quantum interface that compresses tabular structure into a
+fixed 4-qubit budget, rather than as a claim that PCA is the uniquely best feature map.
 
 \subsection{Teacher and Student Models}
 The teacher is a classical multilayer perceptron with hidden dimensions $[64,32]$ and dropout $0.2$.
@@ -180,16 +199,24 @@ A schematic representation using \texttt{quantikz} notation is:
 The effective circuit depth is 2 (encoding + one entangling block), giving $4$ trainable parameters.
 This is a deliberately shallow ansatz: it is sufficient to introduce nonlinear quantum correlations
 without incurring excessive simulation cost or barren plateau risk~\cite{mcclean2018barren}.
+Angle embedding is chosen because it is simple, differentiable, and easy to match to bounded PCA
+coordinates, but it also constrains the accessible frequency spectrum unless the encoding is repeated
+or supported by a richer pre-quantum projection~\cite{perezsalinas2020reuploading,larose2020robust,schuld2021encoding}.
 
 \paragraph{Expressibility.}
 For a 4-qubit, 1-layer \texttt{BasicEntanglerLayers} ansatz, the expressibility---measured as the
 KL divergence between the distribution of state fidelities and the Haar-random
 distribution~\cite{sim2019expressibility}---is relatively low compared to deeper alternating-layered
-ansatze. This is a deliberate trade-off: higher expressibility circuits improve representational
-capacity but increase gradient variance and simulation cost. For a near-saturated binary task like
-WDBC, the shallow ansatz is both practical and sufficient to test placement effects. As discussed
-later in Section~\ref{sec:param_efficiency}, the quantum block contributes only four trainable
-parameters, so any performance differences cannot be attributed to parameter count alone.
+ansatze. This is a deliberate trade-off: higher expressibility can improve representational
+capacity, but empirical and theoretical work suggests that classification quality depends on how
+expressibility interacts with gradient scale, cost locality, and encoding choice rather than on
+expressibility alone~\cite{hubregtsen2021evaluation,abbas2021power,holmes2022expressibility}. We
+therefore favor a shallow circuit and local-output training objective, which aligns with trainability
+guidance from barren plateau analyses~\cite{mcclean2018barren,cerezo2021cost}. For a near-saturated
+binary task like WDBC, the shallow ansatz is both practical and sufficient to test placement
+effects. As discussed later in Section~\ref{sec:param_efficiency}, the quantum block contributes only
+four trainable parameters, so any performance differences cannot be attributed to parameter count
+alone.
 
 \subsection{Knowledge Distillation}
 The student objective combines a hard-label BCE term with a soft-target distillation term:
@@ -439,6 +466,22 @@ small and too statistically fragile to offset the simulation-cost gap. The hybri
 behaves more like a research probe than a cost-effective production choice on these small tabular
 benchmarks.
 
+\subsection{Benchmark Validity and External Plausibility}
+Recent QML theory and benchmarking work cautions that small accuracy deltas on classical data can be
+driven as much by encoding choice, sample size, and estimator noise as by genuinely useful quantum
+effects~\cite{caro2022generalization,peters2021highdim,thanasilp2024kernel}. Our results fit that
+pattern. The 4-qubit block can match compact classical baselines on some folds, but the evidence does
+not isolate a uniquely quantum benefit: the best gains appear only after aggressive classical
+preprocessing, remain statistically fragile, and weaken once cost is treated as part of the
+comparison.
+
+This conservative reading is especially important in healthcare-facing QML. Systematic reviews of the
+biomedical literature report that most studies remain simulator-based, use small or repeatedly reused
+benchmark datasets, and rarely establish stable superiority over carefully tuned classical
+baselines~\cite{maheshwari2022biomedical,gupta2025digitalhealth}. The present study is therefore best
+understood as a controlled measurement of placement and conditioning effects inside a hybrid
+pipeline, not as a translational claim about clinical deployment.
+
 \subsection{Parameter Efficiency}
 \label{sec:param_efficiency}
 
@@ -476,9 +519,13 @@ intervals still overlap zero, and the companion Pima/Heart placement checks are 
 experiments. The datasets themselves remain small (WDBC 569, Heart 270, Pima 768), so broader
 generalization is still limited. On the modeling side, we evaluate only one 4-qubit, 1-layer
 \texttt{BasicEntanglerLayers} ansatz; we do not report a deeper-circuit comparison, learning-curve
-analysis, or an exhaustive hyperparameter search. On the systems side, all experiments use
-noiseless simulation on PennyLane's \texttt{default.qubit}~\cite{pennylane}; we do not evaluate
-finite-shot sampling, hardware noise, calibration drift, queueing latency, or real NISQ execution.
+analysis, or an exhaustive hyperparameter search, nor do we test repeated data re-uploading or more
+robust encodings that could alter the front-placement
+story~\cite{perezsalinas2020reuploading,larose2020robust,schuld2021encoding}. On the systems side,
+all experiments use noiseless simulation on PennyLane's \texttt{default.qubit}~\cite{pennylane}; we
+do not evaluate finite-shot sampling, hardware noise, calibration drift, queueing latency, or real
+NISQ execution. That omission matters because recent work shows that kernel concentration and shot
+noise can erase nominal gains once hardware constraints are part of the evaluation~\cite{peters2021highdim,thanasilp2024kernel}.
 Future work should extend the same protocol to broader datasets, deeper circuits, and noise-aware
 simulation or hardware settings.
 
@@ -502,7 +549,10 @@ alternatives.
 
 Future work should expand to additional datasets, evaluate noise-aware and shot-based settings, and
 test whether the same placement and KD dynamics persist under deeper or more expressive ansatz
-families.
+families. More broadly, the v2 reading of our results is deliberately cautious: for small biomedical
+tabular problems, the most defensible contribution of a hybrid pipeline is currently methodological
+understanding of placement, conditioning, and supervision transfer, not a claim of practical quantum
+utility.
 
 \section*{Acknowledgment}
 We thank Panda Intelligence Software LTD for supporting this research.
@@ -640,11 +690,6 @@ J.~R.~McClean, S.~Boixo, V.~N.~Smelyanskiy, R.~Babbush, and H.~Neven,
 ``Barren Plateaus in Quantum Neural Network Training Landscapes,''
 \textit{Nature Communications}, vol.~9, p.~4812, 2018.
 
-\bibitem{nguyen2022classicalquantum}
-Q.~H.~Nguyen et al.,
-``Classical-to-Quantum Transfer Learning for Spoken Command Recognition Based on Quantum Neural Networks,''
-\textit{preprint}, arXiv:2110.11919, 2022.
-
 \bibitem{pennylane}
 V.~Bergholm et al.,
 ``PennyLane: Automatic differentiation of hybrid quantum-classical computations,''
@@ -669,27 +714,6 @@ K.~M.~Guppy, S.~Lee, and V.~Froelicher,
 Artery Disease,''
 \textit{The American Journal of Cardiology}, vol.~64, no.~5, pp.~304--310, 1989.
 
-\bibitem{jerbi2023quantum}
-S.~Jerbi, L.~J.~Fiderer, V.~Mnih, and H.~Poulsen Nautrup,
-``Quantum Policy Gradient Algorithms with Softmax Action Selection,''
-\textit{Nature Communications}, vol.~14, p.~5040, 2023.
-
-\bibitem{lloyd2024quantumforc}
-S.~Lloyd, B.~T.~Kiani, D.~M.~Arvidsson-Shukur, S.~Girvin, and A.~O.~Sushkov,
-``Quantum Foraging in High-Dimensional Spaces,''
-\textit{preprint}, arXiv:2405.04050, 2024.
-
-\bibitem{herrmann2023quantum}
-J.~Herrmann, S.~M.~Llima, A.~Rembold, et al.,
-``Realizing Quantum Convolutional Neural Networks on a Superconducting Quantum Processor
-to Accelerate Diagnosis of Medical Images,''
-\textit{Advanced Quantum Technologies}, vol.~6, no.~9, 2023.
-
-\bibitem{canatar2024quantum}
-A.~Canatar, B.~Ruben, J.~B.~Park, M.~M.~Abdallah, I.~Arun, and S.~M.~Vakili,
-``A Statistical Mechanics Perspective on the Detectability of Quantum Kernels,''
-\textit{preprint}, arXiv:2402.04588, 2024.
-
 \bibitem{chen2024quantumkd}
 Z.~Chen, Y.~Gao, and X.~Wang,
 ``Quantum Knowledge Distillation: A Survey,''
@@ -699,6 +723,97 @@ Z.~Chen, Y.~Gao, and X.~Wang,
 T.~Hur, L.~Wossnig, N.-H.~Tseng, S.~M.~Mousavi, M.~Dano, and S.~Y.~Nam,
 ``Quantum Knowledge Distillation for Efficient Deployment of Quantum Neural Networks,''
 \textit{Expert Systems with Applications}, vol.~259, p.~125300, 2025.
+
+\bibitem{preskill2018nisq}
+J.~Preskill,
+``Quantum Computing in the NISQ Era and Beyond,''
+\textit{Quantum}, vol.~2, p.~79, 2018.
+
+\bibitem{biamonte2017qml}
+J.~Biamonte, P.~Wittek, N.~Pancotti, P.~Rebentrost, N.~Wiebe, and S.~Lloyd,
+``Quantum Machine Learning,''
+\textit{Nature}, vol.~549, pp.~195--202, 2017.
+
+\bibitem{benedetti2019pqc}
+M.~Benedetti, E.~Lloyd, S.~Sack, and M.~Fiorentini,
+``Parameterized Quantum Circuits as Machine Learning Models,''
+\textit{Quantum Science and Technology}, vol.~4, no.~4, p.~043001, 2019.
+
+\bibitem{schuld2020circuit}
+M.~Schuld, A.~Bocharov, K.~M.~Svore, and N.~Wiebe,
+``Circuit-centric quantum classifiers,''
+\textit{Physical Review A}, vol.~101, p.~032308, 2020.
+
+\bibitem{perezsalinas2020reuploading}
+A.~P\'erez-Salinas, A.~Cervera-Lierta, E.~Gil-Fuster, and J.~I.~Latorre,
+``Data re-uploading for a universal quantum classifier,''
+\textit{Quantum}, vol.~4, p.~226, 2020.
+
+\bibitem{larose2020robust}
+R.~LaRose and B.~Coyle,
+``Robust data encodings for quantum classifiers,''
+\textit{Physical Review A}, vol.~102, p.~032420, 2020.
+
+\bibitem{abbas2021power}
+A.~Abbas, D.~Sutter, C.~Zoufal, A.~Lucchi, A.~Figalli, and S.~Woerner,
+``The power of quantum neural networks,''
+\textit{Nature Computational Science}, vol.~1, pp.~403--409, 2021.
+
+\bibitem{schuld2021encoding}
+M.~Schuld, R.~Sweke, and J.~J.~Meyer,
+``Effect of data encoding on the expressive power of variational quantum-machine-learning models,''
+\textit{Physical Review A}, vol.~103, p.~032430, 2021.
+
+\bibitem{schuld2019feature}
+M.~Schuld and N.~Killoran,
+``Quantum Machine Learning in Feature Hilbert Spaces,''
+\textit{Physical Review Letters}, vol.~122, p.~040504, 2019.
+
+\bibitem{havlicek2019feature}
+V.~Havl\'i\v{c}ek et al.,
+``Supervised learning with quantum-enhanced feature spaces,''
+\textit{Nature}, vol.~567, pp.~209--212, 2019.
+
+\bibitem{hubregtsen2021evaluation}
+T.~Hubregtsen, J.~Pichlmeier, P.~Stecher, and K.~Bertels,
+``Evaluation of parameterized quantum circuits: on the relation between classification accuracy,
+expressibility, and entangling capability,''
+\textit{Quantum Machine Intelligence}, vol.~3, p.~9, 2021.
+
+\bibitem{caro2022generalization}
+M.~C.~Caro, H.-Y.~Huang, M.~Cerezo, K.~Sharma, A.~Sornborger, L.~Cincio, and P.~J.~Coles,
+``Generalization in quantum machine learning from few training data,''
+\textit{Nature Communications}, vol.~13, p.~4919, 2022.
+
+\bibitem{peters2021highdim}
+E.~Peters et al.,
+``Machine learning of high dimensional data on a noisy quantum processor,''
+\textit{npj Quantum Information}, vol.~7, p.~161, 2021.
+
+\bibitem{cerezo2021cost}
+M.~Cerezo, A.~Sone, T.~Volkoff, L.~Cincio, and P.~J.~Coles,
+``Cost function dependent barren plateaus in shallow parametrized quantum circuits,''
+\textit{Nature Communications}, vol.~12, p.~1791, 2021.
+
+\bibitem{holmes2022expressibility}
+Z.~Holmes, K.~Sharma, M.~Cerezo, and P.~J.~Coles,
+``Connecting Ansatz Expressibility to Gradient Magnitudes and Barren Plateaus,''
+\textit{PRX Quantum}, vol.~3, p.~010313, 2022.
+
+\bibitem{thanasilp2024kernel}
+S.~Thanasilp, S.~Wang, M.~Cerezo, and Z.~Holmes,
+``Exponential concentration in quantum kernel methods,''
+\textit{Nature Communications}, vol.~15, p.~5200, 2024.
+
+\bibitem{maheshwari2022biomedical}
+D.~Maheshwari, B.~Garcia-Zapirain, and D.~Sierra-Sosa,
+``Quantum Machine Learning Applications in the Biomedical Domain: A Systematic Review,''
+\textit{IEEE Access}, vol.~10, pp.~80463--80484, 2022.
+
+\bibitem{gupta2025digitalhealth}
+R.~S.~Gupta, C.~E.~Wood, T.~Engstrom, J.~D.~Pole, and S.~Shrapnel,
+``A systematic review of quantum machine learning for digital health,''
+\textit{npj Digital Medicine}, vol.~8, p.~237, 2025.
 
 \end{thebibliography}
 

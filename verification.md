@@ -1,35 +1,36 @@
-# Verification
+# 验证摘要
 
-- Date: 2026-03-29
-- Executor: Codex
+- 日期：2026-03-30
+- 执行者：Codex
 
-## Verified evidence used for paper updates
+## 已完成项
 
-- `outputs/tables/teacher_summary.json`
-  - AUC: `0.9939 ± 0.0050`
-  - F1: `0.9416 ± 0.0149`
-  - MCC: `0.9089 ± 0.0244`
-  - Train time: `0.29 ± 0.02 s/fold`
-- `outputs/tables/teacher_entropy.json`
-  - Train mean entropy: `0.0968 bits`
-  - Validation mean entropy: `0.1003 bits`
-  - High-confidence fraction `|p-0.5| > 0.45`: `89.7%` (train), `89.6%` (val)
+1. `paper/main.tex` 已扩展为论文 v2 版本风格稿。
+2. 参考文献总数已从 17 条提升到 30 条。
+3. 新增文献已被实质性融入以下部分：
+   - Introduction
+   - Related Work
+   - Method
+   - Discussion
+   - Limitations
+   - Conclusion
+4. 已删除若干与本文主题贴合度较弱的旧引用，并用更直接支撑编码、可训练性、泛化和医疗 QML 语境的新文献替换。
+5. 已完成本地静态检查：
+   - 文献数量正确；
+   - 所有引用键已定义；
+   - 所有参考文献均被正文使用。
+6. 已完成本地 LaTeX 编译，生成 `paper/main.pdf`。
 
-## Verified actions completed
+## 环境变更
 
-1. Updated `paper/main.tex` to replace stale teacher-entropy claims with the real values above.
-2. Added teacher MCC to the main results table.
-3. Clarified that the main hybrid baseline uses middle placement and that the dedicated `alpha` sweep is evaluated under tail placement.
-4. Verified real alpha-ablation outputs in `outputs/tables/ablation_alpha.json`:
-   - `alpha=0.3`: AUC `0.9920 ± 0.0082`, F1 `0.9358 ± 0.0303`, MCC `0.9013 ± 0.0440`
-   - `alpha=0.5`: AUC `0.9918 ± 0.0067`, F1 `0.9510 ± 0.0186`, MCC `0.9231 ± 0.0302`
-   - `alpha=0.7`: AUC `0.9903 ± 0.0071`, F1 `0.9504 ± 0.0187`, MCC `0.9240 ± 0.0277`
-5. Fixed `src/analysis/plot_results.py` so `plot_ablation_alpha` accepts JSON-loaded string keys and generated `outputs/figures/ablation_alpha.pdf/png`.
-6. Updated the additional-dataset appendix note to reflect that Pima dataset preparation and a smoke run exist, but the full multi-dataset pipeline has not yet been executed.
-7. Compiled `paper/main.pdf` successfully with local TeX packages installed under `.texmf`.
-8. Rebuilt `paper/main.pdf` again on user request with `TEXMFHOME="$PWD/../.texmf"`; verified output timestamp `2026-03-29 19:27:38 CST`, size `268112` bytes, and stable SHA256 `0d33b0d1f5107ea13c3cfdf331a87efa70037599c937c0cb50547c27065ec409`.
+为恢复 `quantikz` 所需的标准编译依赖，向本地 TeX 用户树安装了以下标准包：
 
-## Remaining limitations
+- `xargs`
+- `environ`
+- `xstring`
+- `trimspaces`
+- `tikz-cd`
 
-- The paper still reports only a single full benchmark dataset (WDBC); Pima remains smoke-test-only.
-- LaTeX compilation still emits non-fatal overfull `\hbox` warnings.
+## 风险说明
+
+- 参考文献采用手工维护的 `thebibliography`，结构正确且已编译通过，但投稿前仍建议做一次人工格式审校，以核对期刊缩写、页码和标题大小写是否完全符合目标投稿模板。
